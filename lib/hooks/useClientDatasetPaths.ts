@@ -6,10 +6,6 @@ import { STORAGE_KEYS } from "@/lib/config"
 const SIDEBAR_CACHE_KEY = STORAGE_KEYS.SIDEBAR_CACHE
 const SIDEBAR_CACHE_EVENT = STORAGE_KEYS.SIDEBAR_CACHE_EVENT
 const MASTER_CONFIG_VERSION = "2"
-const PACKHOUSE_DATA_VERSION = "1"
-const PACKHOUSE_SPREAD_VERSION = "1"
-const PACKHOUSE_DISTRIBUTORS_VERSION = "1"
-const PACKHOUSE_MARKETS_VERSION = "1"
 
 type SidebarCacheSnapshot = {
   clientId?: string | null
@@ -20,20 +16,12 @@ type SidebarCacheSnapshot = {
 export type ClientDatasetPaths = {
   clientSlug: string | null
   masterConfigPath: string | null
-  packhouseTemporalPath: string | null
-  packhouseSpreadPath: string | null
-  packhouseDistributorsPath: string | null
-  packhouseMarketsPath: string | null
   logoPath: string | null
 }
 
 const EMPTY_PATHS: ClientDatasetPaths = {
   clientSlug: null,
   masterConfigPath: null,
-  packhouseTemporalPath: null,
-  packhouseSpreadPath: null,
-  packhouseDistributorsPath: null,
-  packhouseMarketsPath: null,
   logoPath: null,
 }
 
@@ -76,10 +64,6 @@ function computePaths(cache?: SidebarCacheSnapshot | null): ClientDatasetPaths {
   return {
     clientSlug: slug,
     masterConfigPath: `${base}/master-config.csv?v=${MASTER_CONFIG_VERSION}`,
-    packhouseTemporalPath: `/api/packhouse/temporal?client=${slug}&v=${PACKHOUSE_DATA_VERSION}`,
-    packhouseSpreadPath: `${base}/packhouse/packhouse-spread.json?v=${PACKHOUSE_SPREAD_VERSION}`,
-    packhouseDistributorsPath: `${base}/packhouse/packhouse-distributors.json?v=${PACKHOUSE_DISTRIBUTORS_VERSION}`,
-    packhouseMarketsPath: `${base}/packhouse/packhouse-markets.json?v=${PACKHOUSE_MARKETS_VERSION}`,
     logoPath: `${base}/logo.png`,
   }
 }
@@ -88,10 +72,6 @@ function arePathsEqual(a: ClientDatasetPaths, b: ClientDatasetPaths): boolean {
   return (
     a.clientSlug === b.clientSlug &&
     a.masterConfigPath === b.masterConfigPath &&
-    a.packhouseTemporalPath === b.packhouseTemporalPath &&
-    a.packhouseSpreadPath === b.packhouseSpreadPath &&
-    a.packhouseDistributorsPath === b.packhouseDistributorsPath &&
-    a.packhouseMarketsPath === b.packhouseMarketsPath &&
     a.logoPath === b.logoPath
   )
 }
