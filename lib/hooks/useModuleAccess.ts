@@ -1,9 +1,10 @@
 "use client"
 
 import * as React from "react"
+import { STORAGE_KEYS } from "@/lib/config"
 
-const SIDEBAR_CACHE_KEY = "appSidebarCache"
-const SIDEBAR_CACHE_EVENT = "appSidebarCache:update"
+const SIDEBAR_CACHE_KEY = STORAGE_KEYS.SIDEBAR_CACHE
+const SIDEBAR_CACHE_EVENT = STORAGE_KEYS.SIDEBAR_CACHE_EVENT
 
 export type ModuleAccessSnapshot = {
   allowedModules?: string[]

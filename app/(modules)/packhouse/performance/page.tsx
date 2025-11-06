@@ -37,6 +37,7 @@ import { LOCKED_SELECT_TRIGGER_CLASS } from "@/lib/select"
 import { AIButton } from "@/components/ai-button"
 import { usePDFExport } from "@/lib/hooks/usePDFExport"
 import { useClientDatasetPaths } from "@/lib/hooks/useClientDatasetPaths"
+import { STORAGE_KEYS } from "@/lib/config"
 
 /* eslint-disable react-hooks/exhaustive-deps */
 
@@ -48,7 +49,7 @@ export default function Page() {
   const getClientName = React.useCallback(() => {
     if (typeof window === "undefined") return "Vera Insights"
     try {
-      const cache = window.sessionStorage.getItem("appSidebarCache")
+      const cache = window.sessionStorage.getItem(STORAGE_KEYS.SIDEBAR_CACHE)
       if (cache) {
         const parsed = JSON.parse(cache)
         return parsed.clientName || "Vera Insights"

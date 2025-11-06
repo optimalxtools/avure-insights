@@ -10,6 +10,7 @@ import {
   getIdTokenResult,
   signOut,
 } from 'firebase/auth'
+import { STORAGE_KEYS } from '@/lib/config'
 
 type CustomClaims = { allowedApps?: string[] }
 
@@ -60,9 +61,9 @@ function LoginInner() {
         throw new Error(error)
       }
 
-      localStorage.setItem('isLoggedIn', 'true')
-      localStorage.setItem('loggedInUser', email)
-      localStorage.setItem('rememberMe', rememberMe ? 'true' : 'false')
+      localStorage.setItem(STORAGE_KEYS.IS_LOGGED_IN, 'true')
+      localStorage.setItem(STORAGE_KEYS.LOGGED_IN_USER, email)
+      localStorage.setItem(STORAGE_KEYS.REMEMBER_ME, rememberMe ? 'true' : 'false')
 
       const next = search.get('next') || '/'
       router.replace(next)

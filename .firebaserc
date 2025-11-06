@@ -1,6 +1,6 @@
 {
   "projects": {
-    "default": "vera-insights"
+    "default": "avure-insights"
   },
   "targets": {
     "vera-insights": {

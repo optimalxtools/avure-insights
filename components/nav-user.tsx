@@ -4,6 +4,7 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { signOut } from "firebase/auth"
 import { auth } from "@/lib/firebase"
+import { STORAGE_KEYS } from "@/lib/config"
 
 import { Bell, ChevronsUpDown, LogOut, User } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -51,8 +52,8 @@ export function NavUser({
     } catch {}
     // Optional: clean up local flags
     if (typeof window !== "undefined") {
-      localStorage.removeItem("isLoggedIn");
-      localStorage.removeItem("loggedInUser");
+      localStorage.removeItem(STORAGE_KEYS.IS_LOGGED_IN);
+      localStorage.removeItem(STORAGE_KEYS.LOGGED_IN_USER);
     }
     router.push("/login");
   };

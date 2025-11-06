@@ -30,9 +30,10 @@ import {
 } from "firebase/firestore"
 import { NAV_MAIN, NAV_AVURE, NAV_ORGANISATION } from "@/lib/nav"
 import { UKANYI_CLIENT_ID, UKANYI_CLIENT_SLUG } from "@/lib/client-constants"
+import { STORAGE_KEYS } from "@/lib/config"
 
-const SIDEBAR_CACHE_KEY = "appSidebarCache"
-const SIDEBAR_CACHE_EVENT = "appSidebarCache:update"
+const SIDEBAR_CACHE_KEY = STORAGE_KEYS.SIDEBAR_CACHE
+const SIDEBAR_CACHE_EVENT = STORAGE_KEYS.SIDEBAR_CACHE_EVENT
 
 type SidebarCache = {
   uid: string

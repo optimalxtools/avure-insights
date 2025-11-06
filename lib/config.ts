@@ -4,9 +4,18 @@ export const APP_PREFIX = "avure:";
 export const APP_NAME = "Avure";
 
 export const STORAGE_KEYS = {
+  // Session storage keys
+  SIDEBAR_CACHE: `${APP_PREFIX}appSidebarCache`,
+  SIDEBAR_CACHE_EVENT: `${APP_PREFIX}appSidebarCache:update`,
+  
+  // Filter storage keys
   FILTERS_SHARED: `${APP_PREFIX}filters:shared`,
   FILTERS_PACKHOUSE_BREAKDOWN: `${APP_PREFIX}filters:packhouse:breakdown`,
   FILTERS_PACKHOUSE_PERFORMANCE: `${APP_PREFIX}filters:packhouse:performance`,
   FILTERS_PRICE_WISE: `${APP_PREFIX}filters:price-wise`,
-  SESSION_CACHE: `${APP_PREFIX}session:cache`,
+  
+  // Authentication keys (localStorage)
+  IS_LOGGED_IN: `${APP_PREFIX}isLoggedIn`,
+  LOGGED_IN_USER: `${APP_PREFIX}loggedInUser`,
+  REMEMBER_ME: `${APP_PREFIX}rememberMe`,
 };
