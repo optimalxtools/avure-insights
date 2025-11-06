@@ -3,16 +3,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import * as admin from 'firebase-admin';
-
-const ADMIN_APP_NAME = 'vera-admin';
-
-function getAdminAuth() {
-  const apps = admin.apps as admin.app.App[];                        // <-- type it
-  const existing = apps.find(a => a.name === ADMIN_APP_NAME);
-  const app = existing ?? admin.initializeApp(undefined, ADMIN_APP_NAME);
-  return admin.auth(app);                                            // pass the named app
-}
+import { getAdminAuth } from '@/lib/firebaseAdmin';
 
 type SessionLoginBody = { idToken: string; rememberMe?: boolean };
 
