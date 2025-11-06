@@ -18,11 +18,10 @@ import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { type LucideIcon } from 'lucide-react'
 import { SidebarTrigger } from '@/components/ui/sidebar'
-import { NAV_MAIN, NAV_AVURE, NAV_ORGANISATION } from '@/lib/nav'
+import { NAV_MAIN, NAV_ORGANISATION } from '@/lib/nav'
 import type { NavGroup } from '@/lib/nav'
 import { useClientDatasetPaths } from '@/lib/hooks/useClientDatasetPaths'
 import { cn } from '@/lib/utils'
-import { UKANYI_CLIENT_ID, UKANYI_CLIENT_SLUG } from '@/lib/client-constants'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -54,7 +53,7 @@ type ModuleCard = {
   label: string
   href: string
   icon: LucideIcon
-  category: 'organisation' | 'main' | 'avure'
+  category: 'organisation' | 'main'
   dataHref?: string
 }
 
@@ -80,7 +79,6 @@ function buildModuleCards(groups: NavGroup[], category: ModuleCard['category']):
 const MODULE_CARDS: ModuleCard[] = [
   ...buildModuleCards(NAV_ORGANISATION, 'organisation'),
   ...buildModuleCards(NAV_MAIN, 'main'),
-  ...buildModuleCards(NAV_AVURE, 'avure'),
 ]
 
 function normalizeModules(modules?: unknown): string[] {
@@ -234,23 +232,13 @@ export default function Page() {
 
   const allowedModulesSet = useMemo(() => new Set(allowedModules), [allowedModules])
 
-  const isUkanyiClient = useMemo(
-    () => clientId === UKANYI_CLIENT_ID || clientSlug === UKANYI_CLIENT_SLUG,
-    [clientId, clientSlug]
-  )
-
   const overrideToDataOnly = useMemo(
     () => dataOnlyFlag === 'yes' && dataVisibleFlag === 'yes',
     [dataOnlyFlag, dataVisibleFlag]
   )
 
   const renderedModules = useMemo(() => {
-    return MODULE_CARDS.filter((module) => {
-      if (module.category === 'avure' && !isUkanyiClient) {
-        return false
-      }
-      return true
-    }).map((module) => {
+    return MODULE_CARDS.map((module) => {
       const targetHref = overrideToDataOnly && module.category === 'main' && module.dataHref
         ? module.dataHref
         : module.href
@@ -265,12 +253,11 @@ export default function Page() {
 
       const isAllowed =
         isOrganisation ||
-        isExplicitlyAllowed ||
-        (module.category === 'avure' && isUkanyiClient)
+        isExplicitlyAllowed
 
       const shouldRender =
         isAllowed ||
-        (showUnsubscribedModules && !isOrganisation && module.category !== 'avure')
+        (showUnsubscribedModules && !isOrganisation)
 
       return {
         ...module,
@@ -279,7 +266,7 @@ export default function Page() {
         shouldRender,
       }
     }).filter((module) => module.shouldRender)
-  }, [allowedModulesSet, isUkanyiClient, overrideToDataOnly, showUnsubscribedModules])
+  }, [allowedModulesSet, overrideToDataOnly, showUnsubscribedModules])
 
   const hasAccessibleNonOrganisation = renderedModules.some(
     (module) => module.category !== 'organisation' && module.isAllowed
