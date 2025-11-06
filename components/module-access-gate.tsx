@@ -5,9 +5,8 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
-import { NAV_AVURE, NAV_MAIN } from "@/lib/nav"
+import { NAV_MAIN } from "@/lib/nav"
 import { useModuleAccess } from "@/lib/hooks/useModuleAccess"
-import { UKANYI_CLIENT_ID, UKANYI_CLIENT_SLUG } from "@/lib/client-constants"
 
 function normalizePath(pathname: string | null): string {
   if (!pathname) return ""
@@ -16,9 +15,6 @@ function normalizePath(pathname: string | null): string {
 
 const MAIN_SEGMENTS = new Set(
   NAV_MAIN.map((group) => group.url.replace(/^\/+/, "").split("/")[0] ?? "")
-)
-const AVURE_SEGMENTS = new Set(
-  NAV_AVURE.map((group) => group.url.replace(/^\/+/, "").split("/")[0] ?? "")
 )
 const ALWAYS_ALLOWED_SEGMENTS = new Set(["organisation", "account"])
 
@@ -58,7 +54,6 @@ export function ModuleAccessGate({ children }: { children: React.ReactNode }) {
 
   const normalized = React.useMemo(() => normalizePath(pathname), [pathname])
   const topLevel = normalized.split("/")[0] ?? ""
-  const isUkanyi = clientId === UKANYI_CLIENT_ID || clientSlug === UKANYI_CLIENT_SLUG
   const overrideToDataOnly = dataOnly === "yes" && dataVisible === "yes"
   const hideDataAcquisition = !overrideToDataOnly && dataVisible === "no"
 
@@ -76,18 +71,13 @@ export function ModuleAccessGate({ children }: { children: React.ReactNode }) {
       return
     }
 
-    if (!MAIN_SEGMENTS.has(topLevel) && !AVURE_SEGMENTS.has(topLevel)) {
+    if (!MAIN_SEGMENTS.has(topLevel)) {
       setIsAllowed(true)
       return
     }
 
     if (ALWAYS_ALLOWED_SEGMENTS.has(topLevel)) {
       setIsAllowed(true)
-      return
-    }
-
-    if (AVURE_SEGMENTS.has(topLevel)) {
-      setIsAllowed(isUkanyi)
       return
     }
 
@@ -104,7 +94,7 @@ export function ModuleAccessGate({ children }: { children: React.ReactNode }) {
     }
 
     setIsAllowed(hasModulePermission(normalized, allowedModules))
-  }, [allowedModules, hideDataAcquisition, isDataAcquisitionPath, isUkanyi, normalized, overrideToDataOnly, ready, topLevel])
+  }, [allowedModules, hideDataAcquisition, isDataAcquisitionPath, normalized, overrideToDataOnly, ready, topLevel])
 
   if (!ready || isAllowed === null) {
     return null
