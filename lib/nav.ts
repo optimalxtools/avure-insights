@@ -1,9 +1,5 @@
 ﻿import {
   type LucideIcon,
-  Grape,
-  Leaf,
-  Package,
-  Truck,
   Gauge,
   Tag,
   Database,
@@ -31,50 +27,6 @@ export const NAV_DASHBOARD: NavItem[] = [];
 export const NAV_ACCOUNT: NavGroup[] = [];
 
 export const NAV_MAIN: NavGroup[] = [
-  {
-    title: "Production",
-    icon: Leaf,
-    url: "/production",
-    items: [
-      { title: "Overview", url: "/production/overview" },
-      { title: "Breakdown", url: "/production/breakdown" },
-      { title: "Data Acquisition", url: "/production/data-acquisition", icon: Database },
-    ],
-  },
-  {
-    title: "Harvest",
-    icon: Grape,
-    url: "/harvest",
-    items: [
-      { title: "Overview", url: "/harvest/overview" },
-      { title: "Breakdown", url: "/harvest/breakdown" },
-      { title: "Data Acquisition", url: "/harvest/data-acquisition", icon: Database },
-    ],
-  },
-  {
-    title: "Packhouse",
-    icon: Package,
-    url: "/packhouse",
-    items: [
-      { title: "Overview", url: "/packhouse/overview" },
-      { title: "Performance", url: "/packhouse/performance" },
-      { title: "Breakdown", url: "/packhouse/breakdown" },
-      { title: "Data Acquisition", url: "/packhouse/data-acquisition", icon: Database },
-    ],
-  },
-  {
-    title: "Distribution",
-    icon: Truck,
-    url: "/distribution",
-    items: [
-      { title: "Overview", url: "/distribution/overview" },
-      { title: "Breakdown", url: "/distribution/breakdown" },
-      { title: "Data Acquisition", url: "/distribution/data-acquisition", icon: Database },
-    ],
-  },
-];
-
-export const NAV_AVURE: NavGroup[] = [
   {
     title: "Business Gauge",
     icon: Gauge,
@@ -118,8 +70,6 @@ export function findTitleByUrl(pathname: string): string | undefined {
     ...NAV_MAIN.flatMap((m) => m.items),
     ...NAV_ORGANISATION.map((m) => ({ title: m.title, url: m.url })),
     ...NAV_ORGANISATION.flatMap((m) => m.items),
-    ...NAV_AVURE.map((m) => ({ title: m.title, url: m.url })),
-    ...NAV_AVURE.flatMap((m) => m.items),
     ...NAV_ACCOUNT.map((p) => ({ title: p.title, url: p.url })),
     ...NAV_ACCOUNT.flatMap((p) => p.items),
   ];
@@ -139,26 +89,12 @@ export function findTitlesForPath(pathname: string): { group?: string; item?: st
         return { group: group.title, item: it.title };
       }
     }
-    // Also consider nested routes under the group (e.g., /production/settings)
+    // Also consider nested routes under the group (e.g., /business-gauge/settings)
     if (normalized.startsWith(group.url + "/")) {
       return { group: group.title };
     }
   }
   for (const group of NAV_ORGANISATION) {
-    if (normalized === group.url) {
-      return { group: group.title };
-    }
-    for (const it of group.items) {
-      if (normalized === it.url) {
-        return { group: group.title, item: it.title };
-      }
-    }
-    if (normalized.startsWith(group.url + "/")) {
-      return { group: group.title };
-    }
-  }
-  // Search AVURE groups/items
-  for (const group of NAV_AVURE) {
     if (normalized === group.url) {
       return { group: group.title };
     }

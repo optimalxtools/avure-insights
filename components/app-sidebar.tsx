@@ -28,8 +28,7 @@ import {
   onSnapshot,
   limit,
 } from "firebase/firestore"
-import { NAV_MAIN, NAV_AVURE, NAV_ORGANISATION } from "@/lib/nav"
-import { UKANYI_CLIENT_ID, UKANYI_CLIENT_SLUG } from "@/lib/client-constants"
+import { NAV_MAIN, NAV_ORGANISATION } from "@/lib/nav"
 import { STORAGE_KEYS } from "@/lib/config"
 
 const SIDEBAR_CACHE_KEY = STORAGE_KEYS.SIDEBAR_CACHE
@@ -483,60 +482,6 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
     [isActive]
   )
 
-  const navAvure = React.useMemo(
-    () => {
-      const forceShowAvure = clientId === UKANYI_CLIENT_ID || clientSlugValue === UKANYI_CLIENT_SLUG
-      if (!forceShowAvure) {
-        return []
-      }
-
-      const overrideToDataOnly = dataOnly === "yes" && dataVisible === "yes"
-      const hideDataAcquisition = !overrideToDataOnly && dataVisible === "no"
-
-      return NAV_AVURE.map((mod) => {
-        const processedItems = mod.items.map((sub) => {
-          const isDataAcquisition = sub.title === "Data Acquisition"
-          const forcedHidden = overrideToDataOnly ? !isDataAcquisition : hideDataAcquisition && isDataAcquisition
-          const baseDisabled = !hasAccess(sub.url)
-          const forcedDisabled = forcedHidden || baseDisabled
-          return {
-            ...sub,
-            isActive: isActive(sub.url),
-            disabled: forcedDisabled,
-            shouldRender: !forcedHidden,
-          }
-        })
-
-        // If forceShowAvure, include Avure items but still hide those the user can't access.
-        const visibleItems = processedItems.filter((s) => {
-          if (!s.shouldRender) return false
-          if (showUnsubscribedModules) {
-            return true
-          }
-          return !s.disabled
-        })
-
-        const cleanedItems = visibleItems.map((item) => {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { shouldRender, ...rest } = item
-          return rest
-        })
-
-        const moduleDisabled = cleanedItems.length === 0
-
-        return {
-          title: mod.title,
-          icon: mod.icon,
-          url: mod.url,
-          isActive: cleanedItems.some((s) => s.isActive),
-          items: cleanedItems,
-          disabled: moduleDisabled,
-        }
-      })
-    },
-    [clientId, clientSlugValue, hasAccess, isActive, dataOnly, dataVisible, showUnsubscribedModules]
-  )
-
   const fallbackUser = userInfo ?? { name: "Loading", email: "" }
   const orgLabel = loadingClient ? "Loading" : clientName || "Unknown organisation"
 
@@ -568,11 +513,6 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         {/* Modules */}
         {navMain.length > 0 && (
           <NavMain title="Modules" items={navMain} />
-        )}
-        {navAvure.length > 0 && (
-          <>
-            <NavMain title="Avure" items={navAvure} />
-          </>
         )}
       </SidebarContent>
 
