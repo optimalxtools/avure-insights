@@ -17,7 +17,7 @@ export function AIButton({ currentPage }: AIButtonProps) {
       <Button
         onClick={() => setIsOpen(true)}
         variant="ghost"
-  className="bg-transparent hover:bg-transparent text-[hsl(87,9%,23%)] hover:text-[hsl(87,9%,23%)] [&_svg]:size-6 border-2 border-[hsl(87,9%,23%)]"
+        className="bg-transparent hover:bg-transparent text-[#181818] hover:text-[#181818] [&_svg]:size-6 border-2 border-[#181818]"
         size="icon"
       >
         <Sparkles className="size-6" />

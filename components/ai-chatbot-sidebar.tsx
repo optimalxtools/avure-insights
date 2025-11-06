@@ -87,15 +87,15 @@ export function AIChatbotSidebar({ isOpen, onClose, currentPage }: AIChatbotSide
       {/* Sidebar */}
       <div
         className={cn(
-          "fixed right-0 top-0 h-full w-full sm:w-[420px] md:w-[520px] bg-[#fffef9] border-l shadow-xl z-50 flex flex-col transition-transform duration-300",
+          "fixed right-0 top-0 h-full w-full sm:w-[420px] md:w-[520px] bg-white border-l shadow-xl z-50 flex flex-col transition-transform duration-300",
           isOpen ? "translate-x-0" : "translate-x-full"
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-border bg-[#fffef9]">
+        <div className="flex items-center justify-between p-5 border-b border-border bg-white">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-lg bg-sidebar">
-              <Sparkles className="h-6 w-6 text-white" />
+              <Sparkles className="h-6 w-6 text-[#f2a007]" />
             </div>
             <div>
               <h2 className="text-xl font-semibold text-foreground">AI Insights</h2>
@@ -146,7 +146,7 @@ export function AIChatbotSidebar({ isOpen, onClose, currentPage }: AIChatbotSide
 
         {/* Predefined Prompts */}
         {messages.length === 0 && (
-          <div className="p-5 border-b border-border bg-[#fffef9]">
+          <div className="p-5 border-b border-border bg-white">
             <h3 className="text-base font-semibold mb-4 text-foreground">Quick Actions</h3>
             <div className="grid grid-cols-2 gap-3">
               {PREDEFINED_PROMPTS.map((prompt, index) => {
@@ -170,11 +170,11 @@ export function AIChatbotSidebar({ isOpen, onClose, currentPage }: AIChatbotSide
         )}
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-[#fffef9]">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-white">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center px-6">
               <div className="p-5 rounded-full bg-sidebar mb-5">
-                <Sparkles className="h-10 w-10 text-white" />
+                <Sparkles className="h-10 w-10 text-[#f2a007]" />
               </div>
               <h3 className="text-xl font-semibold mb-3 text-foreground">Welcome to AI Insights</h3>
               <p className="text-base text-muted-foreground max-w-sm leading-relaxed">
@@ -211,7 +211,7 @@ export function AIChatbotSidebar({ isOpen, onClose, currentPage }: AIChatbotSide
         </div>
 
         {/* Input */}
-        <div className="p-5 border-t border-border bg-[#fffef9]">
+        <div className="p-5 border-t border-border bg-white">
           <div className="flex gap-3">
             <Textarea
               placeholder="Ask a question..."
