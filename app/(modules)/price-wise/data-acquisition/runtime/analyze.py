@@ -247,7 +247,7 @@ def analyze_room_inventory(df):
     return pd.DataFrame(analysis).sort_values('avg_room_occupancy_rate', ascending=False)
 
 
-def generate_json_summary(pricing_metrics, occupancy_metrics, comparison, room_inventory=None):
+def generate_json_summary(pricing_metrics, occupancy_metrics, comparison, room_inventory=None, scrape_timestamp=None):
     """Generate JSON summary with all analysis data including room-level insights."""
     
     # Replace NaN with None for valid JSON
@@ -266,9 +266,12 @@ def generate_json_summary(pricing_metrics, occupancy_metrics, comparison, room_i
         room_inventory = room_inventory.replace({np.nan: None})
         room_inventory_list = room_inventory.to_dict('records')
     
+    # Use scrape timestamp if provided, otherwise use current time
+    generated_at = scrape_timestamp if scrape_timestamp else datetime.now().isoformat()
+    
     # Build analysis object
     analysis = {
-        'generated_at': datetime.now().isoformat(),
+        'generated_at': generated_at,
         'reference_property': config.REFERENCE_PROPERTY,
         'mode': config.get_mode_name(),
         'pricing_metrics': pricing_list,
@@ -321,8 +324,11 @@ def main():
 
     print("Generating analysis...")
 
+    # Get the most recent scrape timestamp from the data
+    scrape_timestamp = df['scrape_timestamp'].max().isoformat()
+
     # JSON analysis export
-    json_summary = generate_json_summary(pricing_metrics, occupancy_metrics, comparison, room_inventory)
+    json_summary = generate_json_summary(pricing_metrics, occupancy_metrics, comparison, room_inventory, scrape_timestamp)
     print(f"OK: Analysis saved to {config.ANALYSIS_JSON}")
 
     # Console summary

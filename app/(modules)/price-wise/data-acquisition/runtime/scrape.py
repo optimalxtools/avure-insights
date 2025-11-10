@@ -32,38 +32,79 @@ def get_today_str():
 def load_daily_progress():
     """Load daily progress tracker."""
     if config.DAILY_PROGRESS_FILE.exists():
-        with open(config.DAILY_PROGRESS_FILE, 'r') as f:
-            return json.load(f)
+        try:
+            with open(config.DAILY_PROGRESS_FILE, 'r') as f:
+                content = f.read().strip()
+                if content:
+                    return json.loads(content)
+        except (json.JSONDecodeError, Exception):
+            pass
     return {"date": None, "completed_properties": []}
 
 
 def archive_existing_data():
-    """Archive existing pricing data before starting a new scrape."""
+    """Archive existing pricing data and analysis before starting a new scrape."""
     if not config.ENABLE_ARCHIVING:
         return
     
     if not config.PRICING_CSV.exists():
         return
     
-    # Get yesterday's date for archive filename
-    yesterday = datetime.now() - timedelta(days=1)
-    date_str = yesterday.strftime("%Y%m%d")
-    archive_filename = f"pricing_data_{date_str}.csv"
-    archive_path = config.ARCHIVE_DIR / archive_filename
+    # Get the date from the existing scrape_log to use the actual scrape date
+    scrape_log_path = config.OUTPUT_DIR / "scrape_log.json"
+    date_str = None
     
-    # Only copy if archive doesn't exist yet (prevents overwriting good data)
-    if not archive_path.exists():
-        shutil.copy2(config.PRICING_CSV, archive_path)
-        print(f"Archived existing data to: {archive_filename}")
+    if scrape_log_path.exists():
+        try:
+            with open(scrape_log_path, 'r') as f:
+                scrape_log = json.load(f)
+                if scrape_log and len(scrape_log) > 0:
+                    # Get the most recent successful scrape timestamp
+                    latest_entry = scrape_log[-1]  # Last entry is most recent
+                    timestamp = latest_entry.get("timestamp", "")
+                    if timestamp:
+                        # Parse timestamp and format as YYYYMMDD
+                        scrape_date = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                        date_str = scrape_date.strftime("%Y%m%d")
+        except (json.JSONDecodeError, ValueError, KeyError) as e:
+            print(f"Could not read scrape log date: {e}")
+    
+    # Fallback to yesterday if we couldn't get the scrape date
+    if not date_str:
+        yesterday = datetime.now() - timedelta(days=1)
+        date_str = yesterday.strftime("%Y%m%d")
+    
+    archive_csv_filename = f"pricing_data_{date_str}.csv"
+    archive_json_filename = f"pricing_analysis_{date_str}.json"
+    archive_csv_path = config.ARCHIVE_DIR / archive_csv_filename
+    archive_json_path = config.ARCHIVE_DIR / archive_json_filename
+    
+    # Archive CSV file (only if archive doesn't exist yet)
+    if not archive_csv_path.exists():
+        shutil.copy2(config.PRICING_CSV, archive_csv_path)
+        print(f"Archived existing data to: {archive_csv_filename}")
     else:
-        print(f"Archive already exists: {archive_filename} (preserving existing archive)")
+        print(f"Archive already exists: {archive_csv_filename} (preserving existing archive)")
+    
+    # Archive analysis JSON file if it exists
+    if config.ANALYSIS_JSON.exists() and not archive_json_path.exists():
+        shutil.copy2(config.ANALYSIS_JSON, archive_json_path)
+        print(f"Archived existing analysis to: {archive_json_filename}")
     
     # Clean up old archives (keep only MAX_ARCHIVE_FILES most recent)
-    archive_files = sorted(config.ARCHIVE_DIR.glob("pricing_data_*.csv"), reverse=True)
-    if len(archive_files) > config.MAX_ARCHIVE_FILES:
-        for old_file in archive_files[config.MAX_ARCHIVE_FILES:]:
+    csv_archives = sorted(config.ARCHIVE_DIR.glob("pricing_data_*.csv"), reverse=True)
+    json_archives = sorted(config.ARCHIVE_DIR.glob("pricing_analysis_*.json"), reverse=True)
+    
+    if len(csv_archives) > config.MAX_ARCHIVE_FILES:
+        for old_file in csv_archives[config.MAX_ARCHIVE_FILES:]:
             old_file.unlink()
             print(f"Removed old archive: {old_file.name}")
+    
+    if len(json_archives) > config.MAX_ARCHIVE_FILES:
+        for old_file in json_archives[config.MAX_ARCHIVE_FILES:]:
+            old_file.unlink()
+            print(f"Removed old archive: {old_file.name}")
+
 
 
 def save_daily_progress(completed_properties):

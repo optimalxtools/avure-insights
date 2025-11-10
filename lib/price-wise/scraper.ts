@@ -466,9 +466,114 @@ export async function isAnalysisOutdated(): Promise<boolean> {
   }
 }
 
+/**
+ * Get the latest successful scrape from history
+ * Returns the most recent entry where scrape_success is true
+ */
+async function getLatestSuccessfulScrape(): Promise<PriceWiseHistoryEntry | undefined> {
+  const history = await getScraperHistory()
+  return history.find(entry => entry.scrape_success === true)
+}
+
+/**
+ * Get the latest archive file date from the archive directory
+ * Returns YYYYMMDD format or undefined if no archives exist
+ */
+async function getLatestArchiveDate(): Promise<string | undefined> {
+  try {
+    const files = await fs.readdir(ARCHIVE_DIR)
+    const archiveFiles = files
+      .filter(f => f.startsWith('pricing_data_') && f.endsWith('.csv'))
+      .map(f => f.replace('pricing_data_', '').replace('.csv', ''))
+      .sort()
+      .reverse()
+    
+    return archiveFiles[0]
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Parse analysis JSON from an archive file
+ * This assumes the archive has a corresponding analysis JSON in the archive folder
+ */
+async function parseArchiveAnalysis(dateStr: string): Promise<PriceWiseAnalysis | undefined> {
+  const archiveAnalysisPath = path.join(ARCHIVE_DIR, `pricing_analysis_${dateStr}.json`)
+  console.log('[parseArchiveAnalysis] Looking for archive at:', archiveAnalysisPath)
+  const exists = await fileExists(archiveAnalysisPath)
+  console.log('[parseArchiveAnalysis] File exists:', exists)
+  if (exists) {
+    const result = await parseJsonToAnalysis(archiveAnalysisPath)
+    console.log('[parseArchiveAnalysis] Parse result:', result ? 'Success' : 'Failed')
+    return result
+  }
+  return undefined
+}
+
 export async function getScraperAnalysis(): Promise<PriceWiseAnalysis | undefined> {
-  if (!(await fileExists(ANALYSIS_JSON))) return undefined
-  return parseJsonToAnalysis(ANALYSIS_JSON)
+  // Get scrape history
+  const history = await getScraperHistory()
+  const latestEntry = history[0] // Already sorted by timestamp descending
+  
+  console.log('[getScraperAnalysis] Latest entry:', latestEntry)
+  
+  // Strategy: Always try to find the latest successful analysis, whether it's current or archived
+  
+  // 1. If latest scrape was fully successful AND current analysis exists and valid, use it
+  if (latestEntry?.scrape_success && latestEntry?.analysis_success) {
+    console.log('[getScraperAnalysis] Latest scrape was successful, checking for analysis file...')
+    if (await fileExists(ANALYSIS_JSON)) {
+      console.log('[getScraperAnalysis] Analysis file exists, attempting to parse...')
+      const currentAnalysis = await parseJsonToAnalysis(ANALYSIS_JSON)
+      if (currentAnalysis) {
+        console.log('[getScraperAnalysis] Successfully parsed current analysis, returning it')
+        return currentAnalysis
+      }
+      console.log('[getScraperAnalysis] Current analysis file is corrupted/empty, will try archive')
+    }
+  }
+  
+  // 2. Find the latest successful scrape from history (could be current or past)
+  console.log('[getScraperAnalysis] Looking for latest successful scrape...')
+  const latestSuccessful = history.find(entry => entry.scrape_success && entry.analysis_success)
+  
+  if (!latestSuccessful) {
+    console.log('[getScraperAnalysis] No successful scrapes found in history')
+    return undefined
+  }
+  
+  console.log('[getScraperAnalysis] Latest successful scrape:', latestSuccessful.timestamp)
+  
+  // 3. Look for archive analysis matching this successful scrape
+  const scrapeDate = new Date(latestSuccessful.timestamp)
+  const dateStr = scrapeDate.toISOString().split('T')[0].replace(/-/g, '') // YYYYMMDD
+  
+  console.log('[getScraperAnalysis] Looking for archive with date:', dateStr)
+  
+  // Check archive for this date
+  const archiveAnalysis = await parseArchiveAnalysis(dateStr)
+  if (archiveAnalysis) {
+    console.log('[getScraperAnalysis] Found archive analysis for date:', dateStr)
+    return archiveAnalysis
+  }
+  
+  console.log('[getScraperAnalysis] No archive found for date:', dateStr)
+  
+  // 4. Last resort: try the most recent archive file
+  console.log('[getScraperAnalysis] Trying most recent archive as last resort...')
+  const latestArchiveDate = await getLatestArchiveDate()
+  if (latestArchiveDate) {
+    console.log('[getScraperAnalysis] Latest archive date:', latestArchiveDate)
+    const finalArchiveAnalysis = await parseArchiveAnalysis(latestArchiveDate)
+    if (finalArchiveAnalysis) {
+      console.log('[getScraperAnalysis] Returning latest archive analysis')
+      return finalArchiveAnalysis
+    }
+  }
+  
+  console.log('[getScraperAnalysis] No analysis available')
+  return undefined
 }
 
 export async function getScraperReportMarkdown(): Promise<string | undefined> {

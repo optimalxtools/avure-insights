@@ -31,11 +31,11 @@ export type PriceWiseRunState = {
 
 export type PriceWiseHistoryEntry = {
   timestamp: string
-  mode: string
+  mode?: string
   scrape_success: boolean
   analysis_success: boolean
   config: {
-    mode: string
+    mode?: string
     occupancy_mode: boolean
     days_ahead: number
     guests: number
