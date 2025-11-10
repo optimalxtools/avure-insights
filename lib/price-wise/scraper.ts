@@ -226,6 +226,7 @@ async function parseJsonToAnalysis(filePath: string): Promise<PriceWiseAnalysis 
       pricing_metrics: data.pricing_metrics || [],
       occupancy_metrics: data.occupancy_metrics || [],
       comparison: data.comparison || [],
+      room_inventory: data.room_inventory || [],
     }
   } catch (error) {
     console.error('Error parsing JSON:', error)

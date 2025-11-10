@@ -101,12 +101,33 @@ export default async function Page() {
   const pricingMetrics = analysis?.pricing_metrics || []
   const occupancyMetrics = analysis?.occupancy_metrics || []
   const comparison = analysis?.comparison || []
+  const roomInventory = analysis?.room_inventory || []
   
   // Sort occupancy by rate (descending)
   const sortedOccupancy = [...occupancyMetrics].sort((a: any, b: any) => (b.occupancy_rate || 0) - (a.occupancy_rate || 0))
   
   // Sort comparison by price difference
   const sortedComparison = [...comparison].sort((a: any, b: any) => (a.price_vs_ref_pct || 0) - (b.price_vs_ref_pct || 0))
+  
+  // Sort room inventory by room occupancy rate
+  const sortedRoomInventory = [...roomInventory].sort((a: any, b: any) => (b.avg_room_occupancy_rate || 0) - (a.avg_room_occupancy_rate || 0))
+  
+  // Add reference property to comparison if it's not there
+  const refPricing = pricingMetrics.find((p: any) => p.hotel_name === analysis?.reference_property)
+  const refOccupancy = occupancyMetrics.find((o: any) => o.hotel_name === analysis?.reference_property)
+  const comparisonWithRef = [...sortedComparison]
+  if (analysis && refPricing && !comparisonWithRef.find((c: any) => c.hotel_name === analysis.reference_property)) {
+    // Add reference property with 0 difference
+    comparisonWithRef.push({
+      hotel_name: analysis.reference_property,
+      avg_price: refPricing.avg_price_per_night,
+      price_vs_ref: 0,
+      price_vs_ref_pct: 0,
+      occupancy: refOccupancy?.occupancy_rate || 0,
+      position: 'Reference'
+    })
+    comparisonWithRef.sort((a: any, b: any) => (a.price_vs_ref_pct || 0) - (b.price_vs_ref_pct || 0))
+  }
 
   return (
     <>
@@ -150,11 +171,12 @@ export default async function Page() {
           <TabsList>
             <TabsTrigger value="pricing">Pricing</TabsTrigger>
             <TabsTrigger value="occupancy">Occupancy</TabsTrigger>
+            <TabsTrigger value="room-analysis">Rooms</TabsTrigger>
           </TabsList>
 
           <TabsContent value="pricing">
             {/* Price Comparison */}
-            {comparison.length > 0 && (
+            {comparisonWithRef.length > 0 && (
               <Card className="mb-4">
                 <CardHeader>
                   <CardTitle>Price Difference</CardTitle>
@@ -173,20 +195,24 @@ export default async function Page() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {sortedComparison.map((row: any, index: number) => {
+                      {comparisonWithRef.map((row: any, index: number) => {
                         const priceDiff = Number(row.price_vs_ref || 0)
                         const priceDiffPct = Number(row.price_vs_ref_pct || 0)
                         const isLower = priceDiff < 0
+                        const isReference = row.hotel_name === analysis?.reference_property
                         
                         return (
-                          <TableRow key={index}>
-                            <TableCell className="font-medium">{row.hotel_name}</TableCell>
-                            <TableCell className="text-right">R {Number(row.avg_price || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                            <TableCell className={`text-right ${isLower ? 'text-green-600' : 'text-red-600'}`}>
-                              R {priceDiff > 0 ? '+' : ''}{priceDiff.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          <TableRow key={index} className={isReference ? "bg-muted/50" : ""}>
+                            <TableCell className="font-medium">
+                              {row.hotel_name}
+                              {isReference && " ⭐"}
                             </TableCell>
-                            <TableCell className={`text-right ${isLower ? 'text-green-600' : 'text-red-600'}`}>
-                              {priceDiffPct > 0 ? '+' : ''}{priceDiffPct.toFixed(1)}%
+                            <TableCell className="text-right">R {Number(row.avg_price || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                            <TableCell className={`text-right ${isReference ? '' : isLower ? 'text-green-600' : 'text-red-600'}`}>
+                              {priceDiff === 0 ? '—' : `R ${priceDiff > 0 ? '+' : ''}${priceDiff.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                            </TableCell>
+                            <TableCell className={`text-right ${isReference ? '' : isLower ? 'text-green-600' : 'text-red-600'}`}>
+                              {priceDiffPct === 0 ? '—' : `${priceDiffPct > 0 ? '+' : ''}${priceDiffPct.toFixed(1)}%`}
                             </TableCell>
                             <TableCell className="text-right">{Number(row.occupancy || 0).toFixed(1)}%</TableCell>
                             <TableCell>{row.position}</TableCell>
@@ -217,15 +243,21 @@ export default async function Page() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {pricingRows.map((row) => (
-                        <TableRow key={row.hotel}>
-                          <TableCell className="font-medium">{row.hotel}</TableCell>
-                          <TableCell>{row.average}</TableCell>
-                          <TableCell>{row.minimum}</TableCell>
-                          <TableCell>{row.maximum}</TableCell>
-                          <TableCell>{row.sample}</TableCell>
-                        </TableRow>
-                      ))}
+                      {pricingRows.map((row) => {
+                        const isReference = row.hotel === analysis?.reference_property
+                        return (
+                          <TableRow key={row.hotel} className={isReference ? "bg-muted/50" : ""}>
+                            <TableCell className="font-medium">
+                              {row.hotel}
+                              {isReference && " ⭐"}
+                            </TableCell>
+                            <TableCell>{row.average}</TableCell>
+                            <TableCell>{row.minimum}</TableCell>
+                            <TableCell>{row.maximum}</TableCell>
+                            <TableCell>{row.sample}</TableCell>
+                          </TableRow>
+                        )
+                      })}
                     </TableBody>
                   </Table>
                 ) : (
@@ -275,6 +307,77 @@ export default async function Page() {
               <Card>
                 <CardContent className="py-8">
                   <p className="text-sm text-muted-foreground text-center">No occupancy metrics were generated.</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="room-analysis">
+            {/* Room Inventory Analysis */}
+            {roomInventory.length > 0 ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Room Inventory & Pricing Strategy</CardTitle>
+                  <CardDescription>Room-level insights showing inventory management and tiered pricing</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Property</TableHead>
+                        <TableHead className="text-right">Avg Room Types</TableHead>
+                        <TableHead className="text-right">Room Occupancy</TableHead>
+                        <TableHead className="text-right">Low Inventory %</TableHead>
+                        <TableHead className="text-right">Avg Room Price</TableHead>
+                        <TableHead className="text-right">Price Spread</TableHead>
+                        <TableHead>Price Tiering</TableHead>
+                        <TableHead className="text-right">Samples</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sortedRoomInventory.map((row: any, index: number) => {
+                        const isReference = row.hotel_name === analysis?.reference_property
+                        const priceSpread = Number(row.room_price_spread_pct || 0)
+                        const usesTiering = row.uses_room_tiering || false
+                        
+                        return (
+                          <TableRow key={index} className={isReference ? "bg-muted/50" : ""}>
+                            <TableCell className="font-medium">
+                              {row.hotel_name}
+                              {isReference && " ⭐"}
+                            </TableCell>
+                            <TableCell className="text-right">{Number(row.avg_total_room_types || 0).toFixed(1)}</TableCell>
+                            <TableCell className="text-right">{Number(row.avg_room_occupancy_rate || 0).toFixed(1)}%</TableCell>
+                            <TableCell className="text-right">{Number(row.low_inventory_pct || 0).toFixed(1)}%</TableCell>
+                            <TableCell className="text-right">
+                              {row.avg_room_price ? `R ${Number(row.avg_room_price).toLocaleString('en-ZA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '—'}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {priceSpread > 0 ? `${priceSpread.toFixed(1)}%` : '—'}
+                            </TableCell>
+                            <TableCell>
+                              <span className={usesTiering ? "text-green-600 font-medium" : "text-muted-foreground"}>
+                                {usesTiering ? "Yes" : "No"}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right">{row.sample_size || 0}</TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                  <div className="mt-4 text-sm text-muted-foreground space-y-1">
+                    <p><strong>Room Occupancy:</strong> Percentage of available room types that are sold out</p>
+                    <p><strong>Low Inventory %:</strong> How often properties have limited room availability</p>
+                    <p><strong>Price Spread:</strong> Difference between cheapest and most expensive room as a percentage</p>
+                    <p><strong>Price Tiering:</strong> Properties using multiple room types at different price points (&gt;50% spread)</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="py-8">
+                  <p className="text-sm text-muted-foreground text-center">No room inventory data available.</p>
                 </CardContent>
               </Card>
             )}

@@ -70,4 +70,5 @@ export type PriceWiseAnalysis = {
   pricing_metrics?: Array<Record<string, number | string | null>>
   occupancy_metrics?: Array<Record<string, number | string | null>>
   comparison?: Array<Record<string, number | string | null>>
+  room_inventory?: Array<Record<string, number | string | boolean | null>>
 }
