@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table"
 import { getScraperAnalysis } from "@/lib/price-wise/scraper"
 import { RefreshButton } from "@/components/price-wise-refresh-button"
-import { PriceComparisonChart, OccupancyComparisonChart, RoomStrategyChart } from "@/components/price-wise/overview-charts"
+import { PriceComparisonChart, OccupancyComparisonChart, RoomStrategyChart, OpportunityCostChart } from "@/components/price-wise/overview-charts"
 
 export default async function Page() {
   const analysis = await getScraperAnalysis()
@@ -294,6 +294,15 @@ export default async function Page() {
                 />
               )}
             </div>
+
+            {/* Opportunity Cost Analysis - Full Width */}
+            {refPricing && refOccupancy && (
+              <OpportunityCostChart 
+                currentPrice={Number(refPricing.avg_price_per_night || 0)}
+                currentOccupancy={Number(refOccupancy.occupancy_rate || 0)}
+                referenceProperty={analysis.reference_property}
+              />
+            )}
           </>
         )}
       </div>

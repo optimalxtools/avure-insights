@@ -351,3 +351,207 @@ export function RoomStrategyChart({ data, referenceProperty }: RoomChartProps) {
     </Card>
   )
 }
+
+interface OpportunityCostChartProps {
+  currentPrice: number
+  currentOccupancy: number
+  referenceProperty: string
+}
+
+export function OpportunityCostChart({ currentPrice, currentOccupancy, referenceProperty }: OpportunityCostChartProps) {
+  // Generate theoretical data points showing occupancy vs net revenue
+  // Assumptions:
+  // - Current position is baseline
+  // - Revenue increases linearly with occupancy
+  // - Operating costs increase exponentially at higher occupancy (wear & tear, stress on property)
+  // - Optimal occupancy is typically 75-85% to balance revenue and property preservation
+  
+  const generateOpportunityData = () => {
+    const dataPoints = []
+    
+    // Generate occupancy scenarios from 40% to 100%
+    for (let occupancy = 40; occupancy <= 100; occupancy += 5) {
+      // Calculate gross revenue (price * occupancy)
+      const revenue = currentPrice * (occupancy / 100) * 30 // Assuming 30 days
+      
+      // Calculate operating costs with exponential increase at high occupancy
+      // Base costs (staff, utilities, basic maintenance): 25% of revenue
+      const baseCostRate = 0.25
+      const baseCost = revenue * baseCostRate
+      
+      // Variable costs increase exponentially above 75% occupancy
+      // This represents accelerated wear & tear, increased cleaning frequency, 
+      // maintenance urgency, utility spikes, etc.
+      let variableCostMultiplier = 1
+      if (occupancy > 75) {
+        // Exponential curve: costs double between 75% and 95%
+        const stressFactor = (occupancy - 75) / 20 // 0 at 75%, 1 at 95%
+        variableCostMultiplier = 1 + (Math.pow(stressFactor, 2.5) * 1.5) // Exponential growth
+      }
+      
+      // Additional high-occupancy costs
+      const variableCost = revenue * 0.15 * variableCostMultiplier
+      
+      // Total operating costs
+      const totalCost = baseCost + variableCost
+      
+      // Net revenue
+      const netRevenue = revenue - totalCost
+      
+      // Calculate opportunity cost relative to current position
+      const currentRevenue = currentPrice * (currentOccupancy / 100) * 30
+      const currentBaseCost = currentRevenue * baseCostRate
+      let currentVariableMultiplier = 1
+      if (currentOccupancy > 75) {
+        const currentStressFactor = (currentOccupancy - 75) / 20
+        currentVariableMultiplier = 1 + (Math.pow(currentStressFactor, 2.5) * 1.5)
+      }
+      const currentVariableCost = currentRevenue * 0.15 * currentVariableMultiplier
+      const currentNetRevenue = currentRevenue - (currentBaseCost + currentVariableCost)
+      
+      const opportunityCost = netRevenue - currentNetRevenue
+      
+      dataPoints.push({
+        occupancy: occupancy,
+        revenue: Math.round(revenue),
+        operatingCost: Math.round(totalCost),
+        netRevenue: Math.round(netRevenue),
+        opportunityCost: Math.round(opportunityCost),
+        isCurrent: Math.abs(occupancy - currentOccupancy) < 3
+      })
+    }
+    
+    return dataPoints
+  }
+  
+  const data = generateOpportunityData()
+  
+  // Find optimal point (highest net revenue, but cap at 90% as true optimal)
+  const optimalPoint = data
+    .filter(d => d.occupancy <= 90) // Don't consider >90% as optimal
+    .reduce((max, point) => 
+      point.netRevenue > max.netRevenue ? point : max
+    , data[0])
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Occupancy Opportunity Cost Analysis</CardTitle>
+        <CardDescription>
+          Revenue vs operating costs across occupancy levels for {referenceProperty}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ChartContainer config={chartConfig} className="h-[400px] w-full">
+          <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis
+              dataKey="occupancy"
+              angle={-45}
+              textAnchor="end"
+              height={80}
+              interval={0}
+              tick={{ fontSize: 11 }}
+              label={{ value: 'Occupancy Rate (%)', position: 'insideBottom', offset: -10 }}
+            />
+            <YAxis
+              tickFormatter={(value) => `R${value}`}
+              tick={{ fontSize: 11 }}
+              label={{ value: 'Revenue (ZAR)', angle: -90, position: 'insideLeft' }}
+            />
+            <ChartTooltip
+              content={({ active, payload }) => {
+                if (active && payload && payload.length) {
+                  const data = payload[0].payload
+                  return (
+                    <div className="rounded-lg border bg-background p-3 shadow-sm">
+                      <div className="grid gap-2">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold mb-1">
+                            {data.isCurrent && '⭐ '}Occupancy: {data.occupancy}%
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            Gross Revenue: R{data.revenue.toLocaleString()}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            Operating Costs: R{data.operatingCost.toLocaleString()}
+                          </span>
+                          <span className="text-xs font-semibold mt-1 text-green-600">
+                            Net Revenue: R{data.netRevenue.toLocaleString()}
+                          </span>
+                          <span className={`text-xs mt-1 font-medium ${data.opportunityCost >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            vs Current: {data.opportunityCost >= 0 ? '+' : ''}R{data.opportunityCost.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                }
+                return null
+              }}
+            />
+            <ReferenceLine 
+              x={optimalPoint.occupancy} 
+              stroke="hsl(var(--primary))" 
+              strokeDasharray="5 5"
+              strokeWidth={2}
+              label={{ 
+                value: `Optimal: ${optimalPoint.occupancy}%`, 
+                position: 'top', 
+                fill: 'hsl(var(--primary))',
+                fontSize: 12,
+                fontWeight: 'bold'
+              }}
+            />
+            <Bar dataKey="netRevenue" radius={[4, 4, 0, 0]}>
+              {data.map((entry, index) => (
+                <Cell
+                  key={`cell-${index}`}
+                  fill={
+                    entry.isCurrent 
+                      ? "hsl(var(--chart-2))" 
+                      : entry.occupancy === optimalPoint.occupancy
+                      ? "hsl(var(--primary))"
+                      : "hsl(var(--chart-1))"
+                  }
+                  opacity={entry.isCurrent ? 1 : 0.8}
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ChartContainer>
+        <div className="mt-3 space-y-2">
+          <div className="text-xs text-muted-foreground text-center">
+            Operating costs increase exponentially above 75% occupancy due to accelerated wear & tear, maintenance demands, and property stress
+          </div>
+          <div className="flex justify-center gap-6 text-xs">
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded" style={{ backgroundColor: 'hsl(var(--chart-2))' }}></div>
+              <span>Current: {currentOccupancy.toFixed(1)}%</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded" style={{ backgroundColor: 'hsl(var(--primary))' }}></div>
+              <span>Optimal: {optimalPoint.occupancy}%</span>
+            </div>
+          </div>
+          {Math.abs(optimalPoint.occupancy - currentOccupancy) > 5 && (
+            <div className="mt-2 p-2 rounded-md bg-muted/50 text-xs text-center">
+              <span className={optimalPoint.occupancy > currentOccupancy ? 'text-green-600 font-medium' : 'text-orange-600 font-medium'}>
+                {optimalPoint.occupancy > currentOccupancy 
+                  ? `Potential to increase net revenue by R${Math.abs(optimalPoint.opportunityCost).toLocaleString()} by targeting ${optimalPoint.occupancy}% occupancy` 
+                  : `Current occupancy (${currentOccupancy.toFixed(1)}%) exceeds optimal. Consider reducing to ${optimalPoint.occupancy}% to maximize net revenue and reduce property stress.`}
+              </span>
+            </div>
+          )}
+          {Math.abs(optimalPoint.occupancy - currentOccupancy) <= 5 && (
+            <div className="mt-2 p-2 rounded-md bg-green-50 text-xs text-center">
+              <span className="text-green-700 font-medium">
+                ✓ Operating near optimal occupancy level ({optimalPoint.occupancy}%)
+              </span>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
