@@ -192,7 +192,7 @@ const Sidebar = React.forwardRef<
       return (
         <div
           className={cn(
-            "flex h-full w-[--sidebar-width] flex-col bg-gradient-to-b from-[#181818] to-[#4d3d1a] text-sidebar-foreground",
+            "flex h-full w-[--sidebar-width] flex-col bg-gradient-to-b from-[#181818] to-[#3a3a3a] text-sidebar-foreground",
             className
           )}
           ref={ref}
@@ -215,7 +215,7 @@ const Sidebar = React.forwardRef<
             data-mobile="true"
             data-state="expanded"
             className={cn(
-              "w-[--sidebar-width] bg-gradient-to-b from-[#181818] to-[#4d3d1a] p-0 text-sidebar-foreground [&>button]:hidden overflow-hidden",
+              "w-[--sidebar-width] bg-gradient-to-b from-[#181818] to-[#3a3a3a] p-0 text-sidebar-foreground [&>button]:hidden overflow-hidden",
               "text-[16px]", // base text a bit larger
               "[&_[data-sidebar=group-label]]:text-base",
               "[&_[data-sidebar=menu]]:gap-1.5",
@@ -290,7 +290,7 @@ const Sidebar = React.forwardRef<
         >
           <div
             data-sidebar="sidebar"
-            className="flex h-full w-full flex-col bg-gradient-to-b from-[#181818] to-[#4d3d1a] group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow"
+            className="flex h-full w-full flex-col bg-gradient-to-b from-[#181818] to-[#3a3a3a] group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow"
           >
             {children}
           </div>
