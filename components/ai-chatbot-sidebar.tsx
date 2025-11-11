@@ -95,7 +95,7 @@ export function AIChatbotSidebar({ isOpen, onClose, currentPage }: AIChatbotSide
         <div className="flex items-center justify-between p-5 border-b border-border bg-white">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-lg bg-sidebar">
-              <Sparkles className="h-6 w-6 text-[#f2a007]" />
+              <Sparkles className="h-6 w-6 text-[#7a7a7a]" />
             </div>
             <div>
               <h2 className="text-xl font-semibold text-foreground">AI Insights</h2>
@@ -174,7 +174,7 @@ export function AIChatbotSidebar({ isOpen, onClose, currentPage }: AIChatbotSide
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center px-6">
               <div className="p-5 rounded-full bg-sidebar mb-5">
-                <Sparkles className="h-10 w-10 text-[#f2a007]" />
+                <Sparkles className="h-10 w-10 text-[#7a7a7a]" />
               </div>
               <h3 className="text-xl font-semibold mb-3 text-foreground">Welcome to AI Insights</h3>
               <p className="text-base text-muted-foreground max-w-sm leading-relaxed">
