@@ -353,8 +353,15 @@ export default async function Page() {
               )}
             </div>
 
-            {/* Visualization Charts */}
+            {/* Price Comparison and Opportunity Cost Analysis */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {refPricing && refOccupancy && (
+                <OpportunityCostChart 
+                  currentPrice={Number(refPricing.avg_price_per_night || 0)}
+                  currentOccupancy={Number(refOccupancy.occupancy_rate || 0)}
+                  referenceProperty={analysis.reference_property}
+                />
+              )}
               {pricingMetrics.length > 0 && occupancyMetrics.length > 0 && (
                 <PriceComparisonChart 
                   pricingData={pricingMetrics as any}
@@ -362,22 +369,7 @@ export default async function Page() {
                   referenceProperty={analysis.reference_property}
                 />
               )}
-              {occupancyMetrics.length > 0 && (
-                <OccupancyComparisonChart 
-                  data={occupancyMetrics as any} 
-                  referenceProperty={analysis.reference_property}
-                />
-              )}
             </div>
-
-            {/* Opportunity Cost Analysis - Full Width */}
-            {refPricing && refOccupancy && (
-              <OpportunityCostChart 
-                currentPrice={Number(refPricing.avg_price_per_night || 0)}
-                currentOccupancy={Number(refOccupancy.occupancy_rate || 0)}
-                referenceProperty={analysis.reference_property}
-              />
-            )}
           </>
         )}
       </div>

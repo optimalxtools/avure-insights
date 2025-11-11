@@ -1,4 +1,4 @@
-# Avure Insights
+# Avure
 
 A Next.js-based business insights and analytics platform forked from Vera Insights.
 

@@ -29,6 +29,7 @@ import {
 import { getScraperAnalysis } from "@/lib/price-wise/scraper"
 import type { PriceWiseAnalysis } from "@/lib/price-wise/types"
 import { RefreshButton } from "@/components/price-wise-refresh-button"
+import { PriceDifferenceChart, PriceRangeChart, OccupancyComparisonChart } from "@/components/price-wise/breakdown-charts"
 
 function toNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value
@@ -175,132 +176,42 @@ export default async function Page() {
           </TabsList>
 
           <TabsContent value="pricing">
-            {/* Price Comparison */}
-            {comparisonWithRef.length > 0 && (
-              <Card className="mb-4">
-                <CardHeader>
-                  <CardTitle>Price Difference</CardTitle>
-                  <CardDescription>Competitive pricing position</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Property</TableHead>
-                        <TableHead className="text-right">Avg Price</TableHead>
-                        <TableHead className="text-right">Difference</TableHead>
-                        <TableHead className="text-right">% Diff</TableHead>
-                        <TableHead className="text-right">Occupancy</TableHead>
-                        <TableHead>Position</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {comparisonWithRef.map((row: any, index: number) => {
-                        const priceDiff = Number(row.price_vs_ref || 0)
-                        const priceDiffPct = Number(row.price_vs_ref_pct || 0)
-                        const isLower = priceDiff < 0
-                        const isReference = row.hotel_name === analysis?.reference_property
-                        
-                        return (
-                          <TableRow key={index} className={isReference ? "bg-muted/50" : ""}>
-                            <TableCell className="font-medium">
-                              {row.hotel_name}
-                              {isReference && " ⭐"}
-                            </TableCell>
-                            <TableCell className="text-right">R {Number(row.avg_price || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                            <TableCell className={`text-right ${isReference ? '' : isLower ? 'text-green-600' : 'text-red-600'}`}>
-                              {priceDiff === 0 ? '—' : `R ${priceDiff > 0 ? '+' : ''}${priceDiff.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                            </TableCell>
-                            <TableCell className={`text-right ${isReference ? '' : isLower ? 'text-green-600' : 'text-red-600'}`}>
-                              {priceDiffPct === 0 ? '—' : `${priceDiffPct > 0 ? '+' : ''}${priceDiffPct.toFixed(1)}%`}
-                            </TableCell>
-                            <TableCell className="text-right">{Number(row.occupancy || 0).toFixed(1)}%</TableCell>
-                            <TableCell>{row.position}</TableCell>
-                          </TableRow>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            )}
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Price Range</CardTitle>
-                <CardDescription>Average nightly rate by competitor</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {pricingRows?.length ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Property</TableHead>
-                        <TableHead>Average</TableHead>
-                        <TableHead>Minimum</TableHead>
-                        <TableHead>Maximum</TableHead>
-                        <TableHead>Samples</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {pricingRows.map((row) => {
-                        const isReference = row.hotel === analysis?.reference_property
-                        return (
-                          <TableRow key={row.hotel} className={isReference ? "bg-muted/50" : ""}>
-                            <TableCell className="font-medium">
-                              {row.hotel}
-                              {isReference && " ⭐"}
-                            </TableCell>
-                            <TableCell>{row.average}</TableCell>
-                            <TableCell>{row.minimum}</TableCell>
-                            <TableCell>{row.maximum}</TableCell>
-                            <TableCell>{row.sample}</TableCell>
-                          </TableRow>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No pricing metrics were generated.</p>
+            {/* Two Column Layout for Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Left Column: Price Difference and Occupancy */}
+              <div className="space-y-4">
+                {comparisonWithRef.length > 0 && (
+                  <PriceDifferenceChart 
+                    comparisonData={comparisonWithRef as any}
+                    referenceProperty={analysis?.reference_property || ''}
+                  />
                 )}
-              </CardContent>
-            </Card>
+                
+                {occupancyMetrics.length > 0 && (
+                  <OccupancyComparisonChart 
+                    data={occupancyMetrics as any} 
+                    referenceProperty={analysis?.reference_property || ''}
+                  />
+                )}
+              </div>
+
+              {/* Right Column: Price Range */}
+              {pricingMetrics.length > 0 && (
+                <PriceRangeChart 
+                  pricingData={pricingMetrics as any}
+                  referenceProperty={analysis?.reference_property || ''}
+                />
+              )}
+            </div>
           </TabsContent>
 
           <TabsContent value="occupancy">
-            {/* Occupancy Rankings */}
             {occupancyMetrics.length > 0 ? (
               <Card>
-                <CardHeader>
-                  <CardTitle>Occupancy Rankings</CardTitle>
-                  <CardDescription>Properties ranked by occupancy rate</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Rank</TableHead>
-                        <TableHead>Property</TableHead>
-                        <TableHead className="text-right">Occupancy</TableHead>
-                        <TableHead className="text-right">Sold Out</TableHead>
-                        <TableHead className="text-right">Available</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sortedOccupancy.map((row: any, index: number) => (
-                        <TableRow key={index} className={row.hotel_name === analysis?.reference_property ? "bg-muted/50" : ""}>
-                          <TableCell>{index + 1}</TableCell>
-                          <TableCell className="font-medium">
-                            {row.hotel_name}
-                            {row.hotel_name === analysis?.reference_property && " ⭐"}
-                          </TableCell>
-                          <TableCell className="text-right">{Number(row.occupancy_rate || 0).toFixed(1)}%</TableCell>
-                          <TableCell className="text-right">{row.sold_out || 0}</TableCell>
-                          <TableCell className="text-right">{row.available || 0}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                <CardContent className="py-8">
+                  <p className="text-sm text-muted-foreground text-center">
+                    Occupancy analysis has been moved to the Pricing tab for better comparison with pricing metrics.
+                  </p>
                 </CardContent>
               </Card>
             ) : (

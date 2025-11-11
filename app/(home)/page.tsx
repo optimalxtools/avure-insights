@@ -391,7 +391,7 @@ export default function Page() {
               {/* Footer meta */}
               <div className="mt-10 text-center text-xs text-muted-foreground space-y-3">
                 <div>
-                  <span>&copy; {new Date().getFullYear()} Avure Insights</span>
+                  <span>&copy; {new Date().getFullYear()} Avure</span>
                   <span className="mx-2">&middot;</span>
                   <span>Version v1.0.2</span>
                   <span className="mx-2">&middot;</span>
@@ -401,7 +401,7 @@ export default function Page() {
                   <div className="h-20 md:h-28 w-auto flex items-center" style={{ minHeight: '5rem' }}>
                     <Image
                       src="/logo_avure.png"
-                      alt="Avure Insights"
+                      alt="Avure"
                       width={460}
                       height={124}
                       priority={true}

@@ -14,8 +14,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Avure Insights",
-  description: "See Your Data, Grow Your Future",
+  title: "Avure",
+  description: "Illuminating Insight",
 };
 
 export default function RootLayout({

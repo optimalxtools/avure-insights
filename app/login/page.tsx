@@ -96,7 +96,7 @@ function LoginInner() {
       />
       <div className="bg-transparent md:backdrop-blur-sm p-8 rounded-xl border border-transparent md:border-neutral-600 w-full max-w-sm text-center relative z-10">
         <div className="mx-auto mb-6 w-full h-40 relative">
-          <Image src="/logo_avure.png" alt="Avure Insights" fill className="object-contain object-center" />
+          <Image src="/logo_avure.png" alt="Avure" fill className="object-contain object-center" />
         </div>
         {error && (
           <div className="mb-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded p-2">
