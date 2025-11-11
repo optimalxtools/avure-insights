@@ -108,14 +108,14 @@ export default function Page() {
   const [allowedModules, setAllowedModules] = useState<string[]>([])
   const [modulesLoaded, setModulesLoaded] = useState(false)
   const { logoPath, clientSlug } = useClientDatasetPaths()
-  const [heroLogoSrc, setHeroLogoSrc] = useState('/logo_vera.png')
+  const [heroLogoSrc, setHeroLogoSrc] = useState('/logo_avure.png')
   const [clientId, setClientId] = useState<string | null>(null)
   const [showUnsubscribedModules, setShowUnsubscribedModules] = useState(false)
   const [dataVisibleFlag, setDataVisibleFlag] = useState<'yes' | 'no'>('yes')
   const [dataOnlyFlag, setDataOnlyFlag] = useState<'yes' | 'no'>('no')
 
   useEffect(() => {
-    setHeroLogoSrc(logoPath ?? '/logo_vera.png')
+    setHeroLogoSrc(logoPath ?? '/logo_avure.png')
   }, [logoPath])
 
   useEffect(() => {
