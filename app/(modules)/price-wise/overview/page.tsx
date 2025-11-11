@@ -192,91 +192,166 @@ export default async function Page() {
           </Card>
         ) : (
           <>
-            {/* Executive Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Executive Summary</CardTitle>
-                <CardDescription>{analysis.reference_property} {analysis.mode && `(${analysis.mode})`}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {refPricing && refOccupancy ? (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <div>
-                        <div className="text-sm text-muted-foreground">Average Price/Night</div>
-                        <div className="text-2xl font-semibold">R {Number(refPricing.avg_price_per_night || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            {/* Executive Summary - Snapshot Blocks */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {refPricing && (
+                <Card className="relative overflow-hidden">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="text-sm text-muted-foreground mb-2">Average Price/Night</p>
+                        <h3 className="text-3xl font-bold tracking-tight">
+                          R {Number(refPricing.avg_price_per_night || 0).toLocaleString('en-ZA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-1">{analysis.reference_property}</p>
                       </div>
-                      <div>
-                        <div className="text-sm text-muted-foreground">Price Range</div>
-                        <div className="text-2xl font-semibold">R {Number(refPricing.min_price || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })} - R {Number(refPricing.max_price || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</div>
-                      </div>
-                      <div>
-                        <div className="text-sm text-muted-foreground">Occupancy Rate</div>
-                        <div className="text-2xl font-semibold">{Number(refOccupancy.occupancy_rate || 0).toFixed(1)}%</div>
-                      </div>
-                      <div>
-                        <div className="text-sm text-muted-foreground">Discount Frequency</div>
-                        <div className="text-2xl font-semibold">{Number(refPricing.discount_frequency || 0).toFixed(1)}%</div>
+                      <div className="rounded-lg bg-primary/10 p-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
+                          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                        </svg>
                       </div>
                     </div>
-                    {optimalPrice && (
-                      <div className="mt-4 pt-4 border-t">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="text-sm text-muted-foreground">Optimal Price Recommendation</div>
-                          <div className="text-xs text-primary font-medium">{optimalPrice.strategy}</div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {refOccupancy && (
+                <Card className="relative overflow-hidden">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="text-sm text-muted-foreground mb-2">Occupancy Rate</p>
+                        <h3 className="text-3xl font-bold tracking-tight">
+                          {Number(refOccupancy.occupancy_rate || 0).toFixed(1)}%
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-1">Current booking rate</p>
+                      </div>
+                      <div className="rounded-lg bg-blue-500/10 p-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-500">
+                          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                          <polyline points="9 22 9 12 15 12 15 22"/>
+                        </svg>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {refPricing && (
+                <Card className="relative overflow-hidden">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="text-sm text-muted-foreground mb-2">Price Range</p>
+                        <h3 className="text-2xl font-bold tracking-tight">
+                          R {Number(refPricing.min_price || 0).toLocaleString('en-ZA', { minimumFractionDigits: 0 })} - {Number(refPricing.max_price || 0).toLocaleString('en-ZA', { minimumFractionDigits: 0 })}
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-1">Min - Max pricing</p>
+                      </div>
+                      <div className="rounded-lg bg-orange-500/10 p-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-orange-500">
+                          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+                          <line x1="3" y1="6" x2="21" y2="6"/>
+                          <path d="M16 10a4 4 0 0 1-8 0"/>
+                        </svg>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {refPricing && (
+                <Card className="relative overflow-hidden">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="text-sm text-muted-foreground mb-2">Discount Frequency</p>
+                        <h3 className="text-3xl font-bold tracking-tight">
+                          {Number(refPricing.discount_frequency || 0).toFixed(1)}%
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-1">Discounted listings</p>
+                      </div>
+                      <div className="rounded-lg bg-pink-500/10 p-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-pink-500">
+                          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                          <polyline points="7.5 4.21 12 6.81 16.5 4.21"/>
+                          <polyline points="7.5 19.79 7.5 14.6 3 12"/>
+                          <polyline points="21 12 16.5 14.6 16.5 19.79"/>
+                          <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                          <line x1="12" y1="22.08" x2="12" y2="12"/>
+                        </svg>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* Optimal Price Recommendation and Market Position */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {optimalPrice && (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle>Optimal Price Recommendation</CardTitle>
+                      <span className="text-xs text-primary font-medium px-2 py-1 bg-primary/10 rounded">{optimalPrice.strategy}</span>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-semibold text-primary">
+                          R {optimalPrice.min.toLocaleString('en-ZA')} - R {optimalPrice.max.toLocaleString('en-ZA')}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          (Current: R {optimalPrice.current.toLocaleString('en-ZA')})
+                        </span>
+                      </div>
+                      <p className="text-sm">{optimalPrice.reasoning}</p>
+                      <div className="flex gap-4 text-xs text-muted-foreground mt-1">
+                        <span>Market Avg: R {optimalPrice.marketAvg.toLocaleString('en-ZA')}</span>
+                        <span>High Occupancy Avg: R {optimalPrice.highOccupancyAvg.toLocaleString('en-ZA')}</span>
+                        <span>Target: {optimalPrice.targetOccupancy}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {comparison.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Market Position</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex gap-6">
+                      <div className="flex items-center gap-2">
+                        <div className="rounded-lg bg-green-500/10 p-2">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                          </svg>
                         </div>
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-xl font-semibold text-primary">
-                              R {optimalPrice.min.toLocaleString('en-ZA')} - R {optimalPrice.max.toLocaleString('en-ZA')}
-                            </span>
-                            <span className="text-sm text-muted-foreground">
-                              (Current: R {optimalPrice.current.toLocaleString('en-ZA')})
-                            </span>
-                          </div>
-                          <p className="text-sm">{optimalPrice.reasoning}</p>
-                          <div className="flex gap-4 text-xs text-muted-foreground mt-1">
-                            <span>Market Avg: R {optimalPrice.marketAvg.toLocaleString('en-ZA')}</span>
-                            <span>High Occupancy Avg: R {optimalPrice.highOccupancyAvg.toLocaleString('en-ZA')}</span>
-                            <span>Target: {optimalPrice.targetOccupancy}</span>
-                          </div>
+                        <div>
+                          <p className="text-2xl font-bold">{cheaperCount}</p>
+                          <p className="text-xs text-muted-foreground">Competitors priced lower</p>
                         </div>
                       </div>
-                    )}
-                    {comparison.length > 0 && (
-                      <div className="mt-4 pt-4 border-t">
-                        <div className="text-sm text-muted-foreground mb-2">Market Position</div>
-                        <div className="flex gap-4">
-                          <div>
-                            <span className="font-semibold">{cheaperCount}</span> competitors priced lower
-                          </div>
-                          <div>
-                            <span className="font-semibold">{expensiveCount}</span> competitors priced higher
-                          </div>
+                      <div className="flex items-center gap-2">
+                        <div className="rounded-lg bg-red-500/10 p-2">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold">{expensiveCount}</p>
+                          <p className="text-xs text-muted-foreground">Competitors priced higher</p>
                         </div>
                       </div>
-                    )}
-                  </>
-                ) : refOccupancy ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div>
-                      <div className="text-sm text-muted-foreground">Occupancy Rate</div>
-                      <div className="text-2xl font-semibold">{Number(refOccupancy.occupancy_rate || 0).toFixed(1)}%</div>
                     </div>
-                    <div>
-                      <div className="text-sm text-muted-foreground">Availability Rate</div>
-                      <div className="text-2xl font-semibold">{Number(refOccupancy.availability_rate || 0).toFixed(1)}%</div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-muted-foreground">Total Checks</div>
-                      <div className="text-2xl font-semibold">{refOccupancy.total_checks || 0}</div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No data available for reference property.</p>
-                )}
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
 
             {/* Visualization Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
