@@ -117,7 +117,7 @@ export function PriceDifferenceChart({ comparisonData, referenceProperty, classN
       <CardContent className="flex flex-1 flex-col p-0">
         {!showTable ? (
           <>
-            <ChartContainer config={chartConfig} className="h-[380px] w-full sm:h-[440px]">
+            <ChartContainer config={chartConfig} className="h-[480px] w-full sm:h-[540px]">
           <BarChart
             data={chartData}
             layout="vertical"
@@ -314,7 +314,7 @@ export function PriceRangeChart({ pricingData, referenceProperty, className }: P
       <CardContent className="flex flex-1 flex-col p-0">
         {!showTable ? (
           <>
-            <ChartContainer config={chartConfig} className="h-[380px] w-full sm:h-[440px]">
+            <ChartContainer config={chartConfig} className="h-[480px] w-full sm:h-[540px]">
           <BarChart
             data={chartData}
             layout="vertical"
@@ -530,7 +530,7 @@ export function OccupancyComparisonChart({ data, referenceProperty, className }:
       <CardContent className="flex flex-1 flex-col p-0">
         {!showTable ? (
           <>
-            <ChartContainer config={stackedChartConfig} className="h-[380px] w-full sm:h-[440px]">
+            <ChartContainer config={stackedChartConfig} className="h-[480px] w-full sm:h-[540px]">
               <BarChart data={sortedData} layout="vertical" margin={{ top: 0, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                 <XAxis
@@ -760,7 +760,7 @@ export function RoomInventoryChart({ data, referenceProperty }: RoomInventoryCha
       <CardContent className="flex flex-1 flex-col p-0">
         {!showTable ? (
           <>
-            <ChartContainer config={config} className="h-[380px] w-full sm:h-[440px]">{/* Adjust height if needed */}
+            <ChartContainer config={config} className="h-[480px] w-full sm:h-[540px]">
           <ScatterChart margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
