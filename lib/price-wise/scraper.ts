@@ -244,6 +244,92 @@ export async function getDailyProgress(): Promise<PriceWiseDailyProgress | undef
   return readJsonFile<PriceWiseDailyProgress | undefined>(DAILY_PROGRESS_FILE, undefined)
 }
 
+export async function getDailyPricingData(): Promise<Array<{
+  hotel_name: string
+  check_in_date: string
+  availability: string
+  total_price: number | null
+  day_offset: number
+  total_room_types?: number | null
+  available_room_types?: number | null
+  sold_out_room_types?: number | null
+  property_occupancy_rate?: number | null
+}>> {
+  if (!(await fileExists(PRICING_CSV))) return []
+  
+  try {
+    const csvContent = await fs.readFile(PRICING_CSV, "utf-8")
+    const lines = csvContent.split(/\r?\n/).filter(line => line.trim().length > 0)
+
+    if (lines.length < 2) return []
+
+    const parseLine = (line: string): string[] => {
+      const result: string[] = []
+      let current = ""
+      let inQuotes = false
+
+      for (let i = 0; i < line.length; i += 1) {
+        const char = line[i]
+        if (char === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"'
+            i += 1
+          } else {
+            inQuotes = !inQuotes
+          }
+        } else if (char === ',' && !inQuotes) {
+          result.push(current)
+          current = ""
+        } else {
+          current += char
+        }
+      }
+
+      result.push(current)
+      return result.map(value => value.replace(/\r$/, ""))
+    }
+
+    const header = parseLine(lines[0])
+    const headerIndex = new Map(header.map((name, index) => [name.trim(), index]))
+
+    const getValue = (columns: string[], key: string): string => {
+      const index = headerIndex.get(key)
+      if (index === undefined) return ""
+      return (columns[index] ?? "").trim()
+    }
+
+    const parseNumber = (columns: string[], key: string): number | null => {
+      const raw = getValue(columns, key)
+      if (raw === "") return null
+      const value = Number(raw)
+      return Number.isFinite(value) ? value : null
+    }
+
+    return lines.slice(1).map(line => {
+      const columns = parseLine(line)
+      const totalRooms = parseNumber(columns, "total_room_types")
+      const availableRooms = parseNumber(columns, "available_room_types")
+      const soldRooms = parseNumber(columns, "sold_out_room_types")
+      const dayOffset = parseNumber(columns, "day_offset")
+
+      return {
+        hotel_name: getValue(columns, "hotel_name"),
+        check_in_date: getValue(columns, "check_in_date"),
+        availability: getValue(columns, "availability"),
+        total_price: parseNumber(columns, "total_price"),
+        day_offset: dayOffset != null ? Math.trunc(dayOffset) : 0,
+        total_room_types: totalRooms,
+        available_room_types: availableRooms,
+        sold_out_room_types: soldRooms,
+        property_occupancy_rate: parseNumber(columns, "property_occupancy_rate"),
+      }
+    }).filter(row => row.hotel_name && row.check_in_date)
+  } catch (error) {
+    console.error("Error reading daily pricing data:", error)
+    return []
+  }
+}
+
 export async function getScraperStatus(): Promise<PriceWiseStatusPayload> {
   await ensureOutputDirectory()
   const [runStateRaw, config, history, dailyProgress] = await Promise.all([

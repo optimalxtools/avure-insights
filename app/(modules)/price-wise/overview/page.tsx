@@ -8,12 +8,13 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { AIButton } from "@/components/ai-button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table"
-import { getScraperAnalysis } from "@/lib/price-wise/scraper"
+import { getScraperAnalysis, getDailyPricingData } from "@/lib/price-wise/scraper"
 import { RefreshButton } from "@/components/price-wise-refresh-button"
-import { PriceComparisonChart, OccupancyComparisonChart, RoomStrategyChart, OpportunityCostChart } from "@/components/price-wise/overview-charts"
+import { SimplePriceChart, SimpleOccupancyChart, DailyBookingStatusChart, DailyAvailabilityChart } from "@/components/price-wise/overview-charts"
 
 export default async function Page() {
   const analysis = await getScraperAnalysis()
+  const dailyData = await getDailyPricingData()
 
   const generatedLabel = analysis?.generated_at
     ? `Generated at ${new Date(analysis.generated_at).toLocaleString()}`
@@ -28,126 +29,13 @@ export default async function Page() {
   // Find reference property data
   const refPricing = pricingMetrics.find((p: any) => p.hotel_name === analysis?.reference_property)
   const refOccupancy = occupancyMetrics.find((o: any) => o.hotel_name === analysis?.reference_property)
+  const refRoomInventory = roomInventory.find((r: any) => r.hotel_name === analysis?.reference_property)
   
   // Sort occupancy by rate (descending)
   const sortedOccupancy = [...occupancyMetrics].sort((a: any, b: any) => (b.occupancy_rate || 0) - (a.occupancy_rate || 0))
   
   // Sort comparison by price difference
   const sortedComparison = [...comparison].sort((a: any, b: any) => (a.price_vs_ref_pct || 0) - (b.price_vs_ref_pct || 0))
-
-  // Calculate market position
-  const cheaperCount = comparison.filter((c: any) => (c.price_vs_ref || 0) < 0).length
-  const expensiveCount = comparison.filter((c: any) => (c.price_vs_ref || 0) > 0).length
-
-  // Calculate optimal price recommendation (focused on increasing occupancy)
-  const calculateOptimalPrice = () => {
-    if (!refPricing || !refOccupancy) return null
-
-    const currentPrice = Number(refPricing.avg_price_per_night || 0)
-    const currentOccupancy = Number(refOccupancy.occupancy_rate || 0)
-    
-    // Get competitors with both pricing and occupancy data
-    const competitorData = pricingMetrics
-      .map((p: any) => {
-        const occ = occupancyMetrics.find((o: any) => o.hotel_name === p.hotel_name)
-        return {
-          name: p.hotel_name,
-          price: Number(p.avg_price_per_night || 0),
-          occupancy: Number(occ?.occupancy_rate || 0)
-        }
-      })
-      .filter((c: any) => c.price > 0 && c.occupancy > 0 && c.name !== analysis?.reference_property)
-
-    if (competitorData.length === 0) return null
-
-    // Find competitors with higher occupancy than us
-    const higherOccupancyCompetitors = competitorData
-      .filter((c: any) => c.occupancy > currentOccupancy)
-      .sort((a: any, b: any) => b.occupancy - a.occupancy)
-
-    // Calculate market averages
-    const avgMarketPrice = competitorData.reduce((sum: number, c: any) => sum + c.price, 0) / competitorData.length
-    const avgMarketOccupancy = competitorData.reduce((sum: number, c: any) => sum + c.occupancy, 0) / competitorData.length
-
-    // Find high occupancy performers (>70% occupancy)
-    const highOccupancyPerformers = competitorData.filter((c: any) => c.occupancy >= 70)
-    const avgHighOccupancyPrice = highOccupancyPerformers.length > 0 
-      ? highOccupancyPerformers.reduce((sum: number, c: any) => sum + c.price, 0) / highOccupancyPerformers.length 
-      : avgMarketPrice
-
-    let recommendedMin = currentPrice
-    let recommendedMax = currentPrice
-    let reasoning = ""
-    let strategy = ""
-
-    // GOAL: Increase occupancy - pricing strategy depends on current position
-    if (currentOccupancy >= 80) {
-      // Already at excellent occupancy - can try increasing price slightly
-      recommendedMin = currentPrice
-      recommendedMax = currentPrice * 1.05
-      reasoning = `Excellent occupancy (${currentOccupancy.toFixed(1)}%). Maintain current pricing or test modest increases.`
-      strategy = "Maintain strong performance"
-    } else if (currentOccupancy >= 70) {
-      // Good occupancy but room to grow
-      if (currentPrice > avgHighOccupancyPrice) {
-        // Priced above high occupancy competitors - consider price reduction
-        recommendedMin = avgHighOccupancyPrice * 0.95
-        recommendedMax = avgHighOccupancyPrice * 1.02
-        reasoning = `Good occupancy (${currentOccupancy.toFixed(1)}%) but priced ${((currentPrice/avgHighOccupancyPrice - 1) * 100).toFixed(0)}% above high-occupancy competitors. Competitive pricing could boost to 80%+.`
-        strategy = "Competitive pricing to capture market share"
-      } else {
-        // Priced competitively - maintain
-        recommendedMin = currentPrice * 0.98
-        recommendedMax = currentPrice * 1.02
-        reasoning = `Solid occupancy (${currentOccupancy.toFixed(1)}%) with competitive pricing. Continue current strategy.`
-        strategy = "Maintain momentum"
-      }
-    } else if (currentOccupancy >= 50) {
-      // Moderate occupancy - need to improve
-      if (higherOccupancyCompetitors.length > 0) {
-        const avgHigherOccPrice = higherOccupancyCompetitors.reduce((sum: number, c: any) => sum + c.price, 0) / higherOccupancyCompetitors.length
-        if (currentPrice > avgHigherOccPrice * 1.1) {
-          // Significantly more expensive than better performers - price is likely barrier
-          recommendedMin = avgHigherOccPrice * 0.90
-          recommendedMax = avgHigherOccPrice
-          reasoning = `Moderate occupancy (${currentOccupancy.toFixed(1)}%). You're priced ${((currentPrice/avgHigherOccPrice - 1) * 100).toFixed(0)}% above competitors with ${higherOccupancyCompetitors[0].occupancy.toFixed(0)}%+ occupancy. Price reduction recommended.`
-          strategy = "Price adjustment to boost bookings"
-        } else {
-          // Pricing is competitive - issue may not be price
-          recommendedMin = currentPrice * 0.95
-          recommendedMax = currentPrice
-          reasoning = `Moderate occupancy (${currentOccupancy.toFixed(1)}%). Pricing is competitive. Consider value-adds, marketing, or modest price reduction.`
-          strategy = "Multi-factor approach needed"
-        }
-      } else {
-        // You have highest occupancy - can maintain/increase
-        recommendedMin = currentPrice
-        recommendedMax = currentPrice * 1.08
-        reasoning = `You lead the market at ${currentOccupancy.toFixed(1)}% occupancy. Room to increase prices.`
-        strategy = "Market leader pricing"
-      }
-    } else {
-      // Low occupancy (<50%) - urgent action needed
-      const lowPricePoint = avgMarketPrice * 0.85
-      recommendedMin = Math.min(lowPricePoint, currentPrice * 0.90)
-      recommendedMax = avgMarketPrice * 0.95
-      reasoning = `Low occupancy (${currentOccupancy.toFixed(1)}%) requires immediate action. Competitive pricing essential to drive bookings.`
-      strategy = "Aggressive pricing to drive occupancy"
-    }
-
-    return {
-      min: Math.round(recommendedMin),
-      max: Math.round(recommendedMax),
-      current: Math.round(currentPrice),
-      reasoning,
-      strategy,
-      marketAvg: Math.round(avgMarketPrice),
-      highOccupancyAvg: Math.round(avgHighOccupancyPrice),
-      targetOccupancy: currentOccupancy >= 80 ? "80%+ (Achieved!)" : "75-85% (Optimal)"
-    }
-  }
-
-  const optimalPrice = calculateOptimalPrice()
 
   return (
     <>
@@ -199,11 +87,18 @@ export default async function Page() {
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <p className="text-sm text-muted-foreground mb-2">Average Price/Night</p>
+                        <p className="text-sm text-muted-foreground mb-2">{refPricing?.avg_room_price_avg ? "Average Room Price" : "Average Price/Night"}</p>
                         <h3 className="text-3xl font-bold tracking-tight">
-                          R {Number(refPricing.avg_price_per_night || 0).toLocaleString('en-ZA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          R {Number((refPricing.avg_room_price_avg ?? refPricing.avg_price_per_night) || 0).toLocaleString('en-ZA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                         </h3>
-                        <p className="text-xs text-muted-foreground mt-1">{analysis.reference_property}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {analysis.reference_property}
+                          {refPricing?.avg_room_price_avg ? (
+                            <span className="block text-[0.65rem] text-muted-foreground">
+                              Property average: R {Number(refPricing.avg_price_per_night || 0).toLocaleString('en-ZA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            </span>
+                          ) : null}
+                        </p>
                       </div>
                       <div className="rounded-lg bg-primary/10 p-3">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
@@ -220,11 +115,20 @@ export default async function Page() {
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <p className="text-sm text-muted-foreground mb-2">Occupancy Rate</p>
+                        <p className="text-sm text-muted-foreground mb-2">{refRoomInventory?.avg_room_occupancy_rate != null ? "Average Room Occupancy" : "Occupancy Rate"}</p>
                         <h3 className="text-3xl font-bold tracking-tight">
-                          {Number(refOccupancy.occupancy_rate || 0).toFixed(1)}%
+                          {refRoomInventory?.avg_room_occupancy_rate != null
+                            ? Number(refRoomInventory.avg_room_occupancy_rate || 0).toFixed(1)
+                            : Number(refOccupancy.occupancy_rate || 0).toFixed(1)}%
                         </h3>
-                        <p className="text-xs text-muted-foreground mt-1">Current booking rate</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {refRoomInventory?.avg_room_occupancy_rate != null ? "Room-level demand" : "Current booking rate"}
+                          {refRoomInventory?.avg_total_room_types ? (
+                            <span className="block text-[0.65rem] text-muted-foreground">
+                              Avg rooms available: {Number(refRoomInventory.avg_available_room_types || 0).toFixed(1)} of {Number(refRoomInventory.avg_total_room_types || 0).toFixed(1)}
+                            </span>
+                          ) : null}
+                        </p>
                       </div>
                       <div className="rounded-lg bg-blue-500/10 p-3">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-500">
@@ -242,11 +146,18 @@ export default async function Page() {
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <p className="text-sm text-muted-foreground mb-2">Price Range</p>
+                        <p className="text-sm text-muted-foreground mb-2">{refPricing?.avg_min_room_price ? "Room Price Range" : "Price Range"}</p>
                         <h3 className="text-2xl font-bold tracking-tight">
-                          R {Number(refPricing.min_price || 0).toLocaleString('en-ZA', { minimumFractionDigits: 0 })} - {Number(refPricing.max_price || 0).toLocaleString('en-ZA', { minimumFractionDigits: 0 })}
+                          R {Number((refPricing.avg_min_room_price ?? refPricing.min_price) || 0).toLocaleString('en-ZA', { minimumFractionDigits: 0 })} - {Number((refPricing.avg_max_room_price ?? refPricing.max_price) || 0).toLocaleString('en-ZA', { minimumFractionDigits: 0 })}
                         </h3>
-                        <p className="text-xs text-muted-foreground mt-1">Min - Max pricing</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {refPricing?.avg_min_room_price ? "Average available room range" : "Min - Max pricing"}
+                          {refPricing?.avg_min_room_price ? (
+                            <span className="block text-[0.65rem] text-muted-foreground">
+                              Property range: R {Number(refPricing.min_price || 0).toLocaleString('en-ZA', { minimumFractionDigits: 0 })} - R {Number(refPricing.max_price || 0).toLocaleString('en-ZA', { minimumFractionDigits: 0 })}
+                            </span>
+                          ) : null}
+                        </p>
                       </div>
                       <div className="rounded-lg bg-orange-500/10 p-3">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-orange-500">
@@ -287,89 +198,39 @@ export default async function Page() {
               )}
             </div>
 
-            {/* Optimal Price Recommendation and Market Position */}
+            {/* Data Overview Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {optimalPrice && (
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle>Optimal Price Recommendation</CardTitle>
-                      <span className="text-xs text-primary font-medium px-2 py-1 bg-primary/10 rounded">{optimalPrice.strategy}</span>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-semibold text-primary">
-                          R {optimalPrice.min.toLocaleString('en-ZA')} - R {optimalPrice.max.toLocaleString('en-ZA')}
-                        </span>
-                        <span className="text-sm text-muted-foreground">
-                          (Current: R {optimalPrice.current.toLocaleString('en-ZA')})
-                        </span>
-                      </div>
-                      <p className="text-sm">{optimalPrice.reasoning}</p>
-                      <div className="flex gap-4 text-xs text-muted-foreground mt-1">
-                        <span>Market Avg: R {optimalPrice.marketAvg.toLocaleString('en-ZA')}</span>
-                        <span>High Occupancy Avg: R {optimalPrice.highOccupancyAvg.toLocaleString('en-ZA')}</span>
-                        <span>Target: {optimalPrice.targetOccupancy}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {comparison.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Market Position</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex gap-6">
-                      <div className="flex items-center gap-2">
-                        <div className="rounded-lg bg-green-500/10 p-2">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500">
-                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="text-2xl font-bold">{cheaperCount}</p>
-                          <p className="text-xs text-muted-foreground">Competitors priced lower</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="rounded-lg bg-red-500/10 p-2">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500">
-                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="text-2xl font-bold">{expensiveCount}</p>
-                          <p className="text-xs text-muted-foreground">Competitors priced higher</p>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-
-            {/* Price Comparison and Opportunity Cost Analysis */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {refPricing && refOccupancy && (
-                <OpportunityCostChart 
-                  currentPrice={Number(refPricing.avg_price_per_night || 0)}
-                  currentOccupancy={Number(refOccupancy.occupancy_rate || 0)}
-                  referenceProperty={analysis.reference_property}
-                />
-              )}
-              {pricingMetrics.length > 0 && occupancyMetrics.length > 0 && (
-                <PriceComparisonChart 
+              {pricingMetrics.length > 0 && (
+                <SimplePriceChart 
                   pricingData={pricingMetrics as any}
+                  referenceProperty={analysis.reference_property}
+                />
+              )}
+              {occupancyMetrics.length > 0 && (
+                <SimpleOccupancyChart 
                   occupancyData={occupancyMetrics as any}
+                  roomInventoryData={roomInventory as any}
                   referenceProperty={analysis.reference_property}
                 />
               )}
             </div>
+
+            {/* Daily Booking Status with Competitor Comparison */}
+            {dailyData.length > 0 && (
+              <DailyBookingStatusChart 
+                dailyData={dailyData}
+                referenceProperty={analysis.reference_property}
+                roomInventoryData={roomInventory as any}
+              />
+            )}
+
+            {/* Daily Availability Tracking */}
+            {dailyData.length > 0 && (
+              <DailyAvailabilityChart 
+                dailyData={dailyData}
+                referenceProperty={analysis.reference_property}
+              />
+            )}
           </>
         )}
       </div>
