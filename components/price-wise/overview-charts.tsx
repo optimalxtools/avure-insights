@@ -858,8 +858,8 @@ export function DailyBookingStatusChart({ dailyData, referenceProperty, roomInve
         </div>
         
         {/* Heatmap - Compact and fills width */}
-        <div className="px-6 pb-6">
-          <table className="border-collapse text-xs w-full table-fixed">
+        <div className="px-6 pb-6 overflow-x-auto">
+          <table className="border-collapse text-xs w-full min-w-[1400px] table-fixed">
             <colgroup>
               <col style={{ width: `${propertyColumnWidth}px` }} />
               {dayOffsets.map(offset => (
