@@ -87,17 +87,12 @@ export default async function Page() {
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <p className="text-sm text-muted-foreground mb-2">{refPricing?.avg_room_price_avg ? "Average Room Price" : "Average Price/Night"}</p>
+                        <p className="text-sm text-muted-foreground mb-2">Average Price/Night</p>
                         <h3 className="text-3xl font-bold tracking-tight">
-                          R {Number((refPricing.avg_room_price_avg ?? refPricing.avg_price_per_night) || 0).toLocaleString('en-ZA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          R {Number(refPricing.avg_price_per_night || 0).toLocaleString('en-ZA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                         </h3>
                         <p className="text-xs text-muted-foreground mt-1">
                           {analysis.reference_property}
-                          {refPricing?.avg_room_price_avg ? (
-                            <span className="block text-[0.65rem] text-muted-foreground">
-                              Property average: R {Number(refPricing.avg_price_per_night || 0).toLocaleString('en-ZA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                            </span>
-                          ) : null}
                         </p>
                       </div>
                       <div className="rounded-lg bg-primary/10 p-3">
@@ -115,19 +110,12 @@ export default async function Page() {
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <p className="text-sm text-muted-foreground mb-2">{refRoomInventory?.avg_room_occupancy_rate != null ? "Average Room Occupancy" : "Occupancy Rate"}</p>
+                        <p className="text-sm text-muted-foreground mb-2">Property Occupancy</p>
                         <h3 className="text-3xl font-bold tracking-tight">
-                          {refRoomInventory?.avg_room_occupancy_rate != null
-                            ? Number(refRoomInventory.avg_room_occupancy_rate || 0).toFixed(1)
-                            : Number(refOccupancy.occupancy_rate || 0).toFixed(1)}%
+                          {Number(refOccupancy.occupancy_rate || 0).toFixed(1)}%
                         </h3>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {refRoomInventory?.avg_room_occupancy_rate != null ? "Room-level demand" : "Current booking rate"}
-                          {refRoomInventory?.avg_total_room_types ? (
-                            <span className="block text-[0.65rem] text-muted-foreground">
-                              Avg rooms available: {Number(refRoomInventory.avg_available_room_types || 0).toFixed(1)} of {Number(refRoomInventory.avg_total_room_types || 0).toFixed(1)}
-                            </span>
-                          ) : null}
+                          Current booking rate
                         </p>
                       </div>
                       <div className="rounded-lg bg-blue-500/10 p-3">
@@ -146,17 +134,12 @@ export default async function Page() {
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <p className="text-sm text-muted-foreground mb-2">{refPricing?.avg_min_room_price ? "Room Price Range" : "Price Range"}</p>
+                        <p className="text-sm text-muted-foreground mb-2">Property Price Range</p>
                         <h3 className="text-2xl font-bold tracking-tight">
-                          R {Number((refPricing.avg_min_room_price ?? refPricing.min_price) || 0).toLocaleString('en-ZA', { minimumFractionDigits: 0 })} - {Number((refPricing.avg_max_room_price ?? refPricing.max_price) || 0).toLocaleString('en-ZA', { minimumFractionDigits: 0 })}
+                          R {Number(refPricing.min_price || 0).toLocaleString('en-ZA', { minimumFractionDigits: 0 })} - {Number(refPricing.max_price || 0).toLocaleString('en-ZA', { minimumFractionDigits: 0 })}
                         </h3>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {refPricing?.avg_min_room_price ? "Average available room range" : "Min - Max pricing"}
-                          {refPricing?.avg_min_room_price ? (
-                            <span className="block text-[0.65rem] text-muted-foreground">
-                              Property range: R {Number(refPricing.min_price || 0).toLocaleString('en-ZA', { minimumFractionDigits: 0 })} - R {Number(refPricing.max_price || 0).toLocaleString('en-ZA', { minimumFractionDigits: 0 })}
-                            </span>
-                          ) : null}
+                          Min - Max pricing
                         </p>
                       </div>
                       <div className="rounded-lg bg-orange-500/10 p-3">
