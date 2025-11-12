@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Cell, Line, LineChart, Area, AreaChart } from "recharts"
 import {
   Card,
@@ -759,27 +760,41 @@ export function DailyBookingStatusChart({ dailyData, referenceProperty, roomInve
   }
   
   const statusLabel: Record<AvailabilityStatus, string> = {
-    sold_out: 'sold out',
-    limited: 'limited availability',
-    available: 'available',
-    unknown: 'no data',
+    sold_out: 'Sold Out',
+    limited: 'Limited Availability',
+    available: 'Available',
+    unknown: 'No Data',
   }
 
   const getCellTitle = (hotel: string, offset: number) => {
     const cell = availabilityMap.get(`${hotel}-${offset}`)
     const status = cell ? statusLabel[cell.status] : statusLabel.unknown
+    const date = getDateLabel(offset)
     const total = cell?.totalRooms
     const available = cell?.availableRooms
     const soldRooms = cell?.soldRooms ?? (total != null && available != null ? total - available : null)
     const soldPercent = cell?.soldPercent != null ? Math.round(cell.soldPercent) : null
 
-    const soldInfo = total != null && available != null
-      ? ` • ${Math.max(soldRooms ?? total - available, 0).toFixed(0)}/${total.toFixed(0)} rooms sold (${available.toFixed(0)} available${soldPercent != null ? ` • ${soldPercent}% sold` : ''})`
-      : soldPercent != null
-        ? ` • ${soldPercent}% rooms sold`
-        : ''
+    // Build a cleaner, multi-line title
+    let lines = [
+      `${hotel}${hotel === referenceProperty ? ' ⭐' : ''}`,
+      `${date} (Day +${offset})`,
+      `Status: ${status}`
+    ]
 
-    return `${hotel} - Day ${offset} (${getDateLabel(offset)}): ${status}${soldInfo}`
+    if (soldPercent != null) {
+      lines.push(`Sold: ${soldPercent}%`)
+    }
+
+    if (total != null && soldRooms != null) {
+      lines.push(`Rooms: ${soldRooms.toFixed(0)} / ${total.toFixed(0)}`)
+    }
+
+    if (available != null) {
+      lines.push(`Available: ${available.toFixed(0)}`)
+    }
+
+    return lines.join('\n')
   }
   
   const propertyColumnWidth = 180
@@ -794,6 +809,30 @@ export function DailyBookingStatusChart({ dailyData, referenceProperty, roomInve
         </CardDescription>
       </CardHeader>
       <CardContent className="p-0">
+        <style jsx>{`
+          .heatmap-cell {
+            position: relative;
+          }
+          .heatmap-cell[data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ffffff;
+            color: #000000;
+            border: 1px solid hsl(var(--border));
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+            font-size: 0.75rem;
+            white-space: pre-line;
+            z-index: 1000;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            pointer-events: none;
+            margin-bottom: 0.25rem;
+            min-width: 150px;
+          }
+        `}</style>
         <div className="p-6 pb-4">
           {/* Legend */}
           <div className="flex items-center gap-6 text-xs border-b pb-3">
@@ -866,19 +905,16 @@ export function DailyBookingStatusChart({ dailyData, referenceProperty, roomInve
                     <span className="ml-0.5">{hotel}</span>
                   </td>
                   {dayOffsets.map(offset => {
-                    const title = getCellTitle(hotel, offset)
                     const cell = availabilityMap.get(`${hotel}-${offset}`)
-                    const soldPercentAttr = cell?.soldPercent != null ? Math.round(cell.soldPercent) : undefined
                     const background = computeCellColor(cell)
+                    const title = getCellTitle(hotel, offset)
 
                     return (
                       <td
                         key={offset}
-                        className="p-0 border-r border-b h-5 hover:opacity-80 transition-opacity cursor-pointer"
-                        title={title}
-                        aria-label={title}
+                        className="heatmap-cell p-0 border-r border-b h-5 hover:opacity-80 transition-opacity cursor-pointer"
                         style={{ background }}
-                        data-sold-percent={soldPercentAttr}
+                        data-tooltip={title}
                       />
                     )
                   })}
