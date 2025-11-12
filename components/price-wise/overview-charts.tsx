@@ -1,6 +1,6 @@
 "use client"
 
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Cell, Scatter, ScatterChart, ZAxis, ReferenceLine, Label } from "recharts"
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Cell, Line, LineChart, Area, AreaChart } from "recharts"
 import {
   Card,
   CardContent,
@@ -12,39 +12,23 @@ import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
-  ChartTooltipContent,
 } from "@/components/ui/chart"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
 
-interface PriceChartProps {
-  pricingData: Array<{
-    hotel_name: string
-    avg_price_per_night: number
-  }>
-  occupancyData: Array<{
-    hotel_name: string
-    occupancy_rate: number
-  }>
-  referenceProperty: string
-}
-
-interface OccupancyChartProps {
-  data: Array<{
-    hotel_name: string
-    occupancy_rate: number
-    sold_out: number
-    available: number
-  }>
-  referenceProperty: string
-}
-
-interface RoomChartProps {
-  data: Array<{
-    hotel_name: string
-    avg_room_occupancy_rate: number
-    room_price_spread_pct: number
-    uses_room_tiering: boolean
-  }>
-  referenceProperty: string
+const toNumber = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) return value
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return null
 }
 
 const chartConfig = {
@@ -58,67 +42,67 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
-export function PriceComparisonChart({ pricingData, occupancyData, referenceProperty }: PriceChartProps) {
-  // Merge pricing and occupancy data
-  const chartData = pricingData
-    .map(pricing => {
-      const occupancy = occupancyData.find(o => o.hotel_name === pricing.hotel_name)
-      return {
-        name: pricing.hotel_name,
-        price: Math.round(pricing.avg_price_per_night || 0),
-        occupancy: Number((occupancy?.occupancy_rate || 0).toFixed(1)),
-        isReference: pricing.hotel_name === referenceProperty
-      }
-    })
-    .filter(item => item.price > 0 && item.occupancy > 0) // Only show properties with both metrics
+// Simple price comparison bar chart
+interface SimplePriceChartProps {
+  pricingData: Array<{
+    hotel_name: string
+    avg_price_per_night: number
+    preferred_price_per_night?: number | null
+    preferred_price_source?: string | null
+    property_avg_price_per_night?: number | null
+    avg_room_price_avg?: number | null
+    room_type_count_estimate?: number | null
+  }>
+  referenceProperty: string
+}
 
-  // Calculate average price and occupancy for reference lines
-  const avgPrice = chartData.reduce((sum, item) => sum + item.price, 0) / chartData.length
-  const avgOccupancy = chartData.reduce((sum, item) => sum + item.occupancy, 0) / chartData.length
+export function SimplePriceChart({ pricingData, referenceProperty }: SimplePriceChartProps) {
+  const chartData = pricingData
+    .map(item => ({
+      name: item.hotel_name,
+      preferredPrice: toNumber(item.preferred_price_per_night)
+        ?? toNumber(item.avg_room_price_avg)
+        ?? toNumber(item.avg_price_per_night)
+        ?? 0,
+      propertyPrice: toNumber(item.property_avg_price_per_night)
+        ?? toNumber(item.avg_price_per_night)
+        ?? 0,
+      hasRoomPrice: (item.preferred_price_source ?? (toNumber(item.avg_room_price_avg) !== null ? "room" : "property")) === "room",
+      priceSource: item.preferred_price_source ?? (toNumber(item.avg_room_price_avg) !== null ? "room" : "property"),
+      roomsTracked: toNumber(item.room_type_count_estimate),
+      isReference: item.hotel_name === referenceProperty,
+    }))
+  .sort((a, b) => b.preferredPrice - a.preferredPrice)
+    .map(item => ({
+      ...item,
+      price: Math.round(item.preferredPrice || 0),
+      rawPrice: item.preferredPrice,
+      fallbackPrice: item.propertyPrice,
+    }))
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Market Positioning</CardTitle>
-        <CardDescription>Price vs Occupancy - optimal position is top-right</CardDescription>
+        <CardTitle>Average Prices</CardTitle>
+        <CardDescription>Average price per night across all properties</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig} className="h-[400px] w-full">
-          <ScatterChart margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-            <CartesianGrid strokeDasharray="3 3" />
+        <ChartContainer config={chartConfig} className="h-[360px] w-full">
+          <BarChart data={chartData} margin={{ top: 20, right: 10, left: 10, bottom: 70 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis
-              type="number"
-              dataKey="occupancy"
-              name="Occupancy"
-              unit="%"
-              domain={[0, 100]}
-              label={{ value: 'Occupancy Rate (%)', position: 'bottom', offset: 0, style: { fontSize: 12 } }}
+              dataKey="name"
+              angle={-45}
+              textAnchor="end"
+              height={100}
+              interval={0}
               tick={{ fontSize: 11 }}
             />
             <YAxis
-              type="number"
-              dataKey="price"
-              name="Price"
               tickFormatter={(value) => `R${(value / 1000).toFixed(0)}k`}
-              label={{ value: 'Avg Price/Night', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
               tick={{ fontSize: 11 }}
+              label={{ value: 'Price per Night', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
             />
-            <ZAxis range={[200, 400]} />
-            
-            {/* Reference lines for average price and occupancy */}
-            <ReferenceLine 
-              x={avgOccupancy} 
-              stroke="hsl(var(--muted-foreground))" 
-              strokeDasharray="3 3" 
-              opacity={0.5}
-            />
-            <ReferenceLine 
-              y={avgPrice} 
-              stroke="hsl(var(--muted-foreground))" 
-              strokeDasharray="3 3" 
-              opacity={0.5}
-            />
-            
             <ChartTooltip
               content={({ active, payload }) => {
                 if (active && payload && payload.length) {
@@ -132,11 +116,13 @@ export function PriceComparisonChart({ pricingData, occupancyData, referenceProp
                             {data.isReference && " ⭐"}
                           </span>
                           <span className="text-[0.70rem] text-muted-foreground">
-                            Price: R {Number(data.price).toLocaleString('en-ZA')}
+                            {data.hasRoomPrice ? 'Avg room price' : 'Avg nightly price'}: R {data.price.toLocaleString('en-ZA')}
                           </span>
-                          <span className="text-[0.70rem] text-muted-foreground">
-                            Occupancy: {data.occupancy}%
-                          </span>
+                          {data.hasRoomPrice && data.fallbackPrice ? (
+                            <span className="text-[0.70rem] text-muted-foreground">
+                              Property average: R {Math.round(data.fallbackPrice).toLocaleString('en-ZA')}
+                            </span>
+                          ) : null}
                         </div>
                       </div>
                     </div>
@@ -145,63 +131,88 @@ export function PriceComparisonChart({ pricingData, occupancyData, referenceProp
                 return null
               }}
             />
-            <Scatter data={chartData} shape="circle">
+            <Bar dataKey="price" radius={[4, 4, 0, 0]}>
               {chartData.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
                   fill={entry.isReference ? "hsl(var(--chart-2))" : "hsl(var(--chart-1))"}
-                  opacity={entry.isReference ? 1 : 0.7}
                 />
               ))}
-            </Scatter>
-          </ScatterChart>
+            </Bar>
+          </BarChart>
         </ChartContainer>
-        <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-          <div className="text-center">
-            <span className="font-medium">Top-Right:</span> Premium pricing with high demand
-          </div>
-          <div className="text-center">
-            <span className="font-medium">Bottom-Right:</span> High demand, room to increase prices
-          </div>
-        </div>
       </CardContent>
     </Card>
   )
 }
 
-export function OccupancyComparisonChart({ data, referenceProperty }: OccupancyChartProps) {
-  // Sort by occupancy descending and take top 8
-  const sortedData = [...data]
-    .sort((a, b) => (b.occupancy_rate || 0) - (a.occupancy_rate || 0))
-    .slice(0, 8)
-    .map(item => ({
-      name: item.hotel_name,
-      soldOut: Number(item.sold_out || 0),
-      available: Number(item.available || 0),
-      occupancyRate: Number((item.occupancy_rate || 0).toFixed(1)),
-      isReference: item.hotel_name === referenceProperty
-    }))
+// Simple occupancy comparison bar chart
+interface SimpleOccupancyChartProps {
+  occupancyData: Array<{
+    hotel_name: string
+    occupancy_rate: number
+    preferred_occupancy_rate?: number | null
+    preferred_occupancy_source?: string | null
+    property_occupancy_rate?: number | null
+    avg_room_occupancy_rate?: number | null
+    room_type_count_estimate?: number | null
+  }>
+  roomInventoryData?: Array<{
+    hotel_name: string
+    avg_room_occupancy_rate?: number | null
+    avg_total_room_types?: number | null
+    avg_available_room_types?: number | null
+    room_type_count_estimate?: number | null
+  }>
+  referenceProperty: string
+}
 
-  const stackedChartConfig = {
-    soldOut: {
-      label: "Sold Out",
-      color: "hsl(var(--chart-1))",
-    },
-    available: {
-      label: "Available",
-      color: "hsl(var(--muted))",
-    },
-  } satisfies ChartConfig
+export function SimpleOccupancyChart({ occupancyData, roomInventoryData = [], referenceProperty }: SimpleOccupancyChartProps) {
+  const roomInventoryMap = new Map(roomInventoryData.map(entry => [entry.hotel_name, entry]))
+
+  const chartData = occupancyData
+    .map(item => {
+      const roomEntry = roomInventoryMap.get(item.hotel_name)
+      const roomRate = roomEntry ? toNumber(roomEntry.avg_room_occupancy_rate) : null
+
+      const preferredRate = toNumber(item.preferred_occupancy_rate)
+        ?? toNumber(item.avg_room_occupancy_rate)
+        ?? roomRate
+        ?? toNumber(item.occupancy_rate)
+        ?? 0
+
+      const propertyRate = toNumber(item.property_occupancy_rate)
+        ?? toNumber(item.occupancy_rate)
+        ?? preferredRate
+
+      const occupancySource = item.preferred_occupancy_source ?? (roomRate !== null ? "room" : "property")
+      const hasRoomData = occupancySource === "room"
+      const roomsTracked = toNumber(item.room_type_count_estimate) ?? toNumber(roomEntry?.room_type_count_estimate)
+
+      return {
+        name: item.hotel_name,
+        occupancy: Number(preferredRate.toFixed(1)),
+        isReference: item.hotel_name === referenceProperty,
+        hasRoomData,
+        roomOccupancy: hasRoomData ? Number(preferredRate.toFixed(1)) : (roomRate !== null ? Number(roomRate.toFixed(1)) : null),
+        propertyOccupancy: Number((propertyRate ?? 0).toFixed(1)),
+        avgTotalRooms: roomEntry?.avg_total_room_types ?? null,
+        avgAvailableRooms: roomEntry?.avg_available_room_types ?? null,
+        roomsTracked,
+        occupancySource,
+      }
+    })
+    .sort((a, b) => b.occupancy - a.occupancy)
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Occupancy Analysis</CardTitle>
-        <CardDescription>Availability vs Sold Out checks (Top 8)</CardDescription>
+        <CardTitle>Occupancy Rates</CardTitle>
+        <CardDescription>Current occupancy percentage for each property</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={stackedChartConfig} className="h-[400px] w-full">
-          <BarChart data={sortedData} margin={{ top: 20, right: 10, left: 10, bottom: 60 }}>
+        <ChartContainer config={chartConfig} className="h-[360px] w-full">
+          <BarChart data={chartData} margin={{ top: 20, right: 10, left: 10, bottom: 70 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="name"
@@ -209,11 +220,13 @@ export function OccupancyComparisonChart({ data, referenceProperty }: OccupancyC
               textAnchor="end"
               height={100}
               interval={0}
-              tick={{ fontSize: 12 }}
+              tick={{ fontSize: 11 }}
             />
             <YAxis
-              tick={{ fontSize: 12 }}
-              label={{ value: 'Number of Checks', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
+              domain={[0, 100]}
+              tickFormatter={(value) => `${value}%`}
+              tick={{ fontSize: 11 }}
+              label={{ value: 'Occupancy Rate', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
             />
             <ChartTooltip
               content={({ active, payload }) => {
@@ -228,18 +241,31 @@ export function OccupancyComparisonChart({ data, referenceProperty }: OccupancyC
                             {data.isReference && " ⭐"}
                           </span>
                           <span className="text-[0.70rem] text-muted-foreground">
-                            Occupancy: {data.occupancyRate}%
+                            {data.hasRoomData ? 'Preferred room occupancy' : 'Property occupancy'}: {data.occupancy}%
                           </span>
-                          <div className="mt-1 space-y-0.5">
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded" style={{ backgroundColor: 'hsl(var(--chart-1))' }}></div>
-                              <span className="text-[0.65rem]">Sold Out: {data.soldOut}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded" style={{ backgroundColor: 'hsl(var(--muted))' }}></div>
-                              <span className="text-[0.65rem]">Available: {data.available}</span>
-                            </div>
-                          </div>
+                          <span className="text-[0.70rem] text-muted-foreground">
+                            Basis: {data.occupancySource === 'room' ? 'Room types' : 'Property summary'}
+                          </span>
+                          {data.hasRoomData ? (
+                            <span className="text-[0.70rem] text-muted-foreground">
+                              Property occupancy checks: {data.propertyOccupancy}%
+                            </span>
+                          ) : null}
+                          {!data.hasRoomData && data.roomOccupancy !== null ? (
+                            <span className="text-[0.70rem] text-muted-foreground">
+                              Room-derived estimate: {data.roomOccupancy}%
+                            </span>
+                          ) : null}
+                          {data.hasRoomData && data.avgTotalRooms ? (
+                            <span className="text-[0.70rem] text-muted-foreground">
+                              Avg rooms available: {Number(data.avgAvailableRooms || 0).toFixed(1)} of {Number(data.avgTotalRooms).toFixed(1)}
+                            </span>
+                          ) : null}
+                          {data.roomsTracked !== null ? (
+                            <span className="text-[0.70rem] text-muted-foreground">
+                              Room types tracked: {Number(data.roomsTracked).toFixed(0)}
+                            </span>
+                          ) : null}
                         </div>
                       </div>
                     </div>
@@ -248,66 +274,105 @@ export function OccupancyComparisonChart({ data, referenceProperty }: OccupancyC
                 return null
               }}
             />
-            <Bar dataKey="soldOut" stackId="a" radius={[0, 0, 0, 0]}>
-              {sortedData.map((entry, index) => (
-                <Cell 
-                  key={`sold-${index}`} 
-                  fill={entry.isReference ? "hsl(var(--chart-2))" : "var(--color-soldOut)"} 
-                />
-              ))}
-            </Bar>
-            <Bar dataKey="available" stackId="a" radius={[4, 4, 0, 0]}>
-              {sortedData.map((entry, index) => (
-                <Cell 
-                  key={`avail-${index}`} 
-                  fill={entry.isReference ? "hsl(var(--muted))" : "var(--color-available)"} 
+            <Bar dataKey="occupancy" radius={[4, 4, 0, 0]}>
+              {chartData.map((entry, index) => (
+                <Cell
+                  key={`cell-${index}`}
+                  fill={entry.isReference ? "hsl(var(--chart-2))" : "hsl(var(--chart-1))"}
                 />
               ))}
             </Bar>
           </BarChart>
         </ChartContainer>
-        <div className="mt-2 text-xs text-muted-foreground text-center">
-          Higher sold-out ratio indicates stronger demand and market positioning
-        </div>
       </CardContent>
     </Card>
   )
 }
 
-export function RoomStrategyChart({ data, referenceProperty }: RoomChartProps) {
-  // Sort by price spread descending and take top 8
-  const sortedData = [...data]
-    .sort((a, b) => (b.room_price_spread_pct || 0) - (a.room_price_spread_pct || 0))
-    .slice(0, 8)
-    .map(item => ({
-      name: item.hotel_name,
-      value: Number((item.room_price_spread_pct || 0).toFixed(1)),
-      isReference: item.hotel_name === referenceProperty,
-      usesTiering: item.uses_room_tiering
-    }))
+// Simple price range chart showing min and max
+interface SimplePriceRangeChartProps {
+  pricingData: Array<{
+    hotel_name: string
+    avg_price_per_night: number
+    min_price: number
+    max_price: number
+    avg_min_room_price?: number | null
+    avg_max_room_price?: number | null
+    avg_room_price_avg?: number | null
+    preferred_price_per_night?: number | null
+    preferred_price_source?: string | null
+    preferred_price_range?: number | null
+    property_avg_price_per_night?: number | null
+    property_min_price?: number | null
+    property_max_price?: number | null
+    room_type_count_estimate?: number | null
+  }>
+  referenceProperty: string
+}
+
+export function SimplePriceRangeChart({ pricingData, referenceProperty }: SimplePriceRangeChartProps) {
+  const chartData = pricingData
+    .map(item => {
+      const preferredMin = toNumber(item.min_price)
+        ?? toNumber(item.avg_min_room_price)
+        ?? 0
+      const preferredMax = toNumber(item.max_price)
+        ?? toNumber(item.avg_max_room_price)
+        ?? preferredMin
+      const preferredAvg = toNumber(item.preferred_price_per_night)
+        ?? toNumber(item.avg_room_price_avg)
+        ?? toNumber(item.avg_price_per_night)
+        ?? (preferredMin + preferredMax) / 2
+
+      const propertyMin = toNumber(item.property_min_price) ?? toNumber(item.min_price)
+      const propertyMax = toNumber(item.property_max_price) ?? toNumber(item.max_price)
+      const propertyAvg = toNumber(item.property_avg_price_per_night) ?? toNumber(item.avg_price_per_night)
+
+      const priceSource = item.preferred_price_source ?? (toNumber(item.avg_min_room_price) !== null ? "room" : "property")
+      const roomsTracked = toNumber(item.room_type_count_estimate)
+
+      return {
+        name: item.hotel_name,
+        minRaw: preferredMin,
+        maxRaw: preferredMax,
+        avgRaw: preferredAvg,
+        min: Math.round(preferredMin || 0),
+        max: Math.round(preferredMax || 0),
+        avg: Math.round(preferredAvg || 0),
+        range: Math.max(Math.round((preferredMax || 0) - (preferredMin || 0)), 0),
+        propertyMin: propertyMin ?? preferredMin,
+        propertyMax: propertyMax ?? preferredMax,
+        propertyAverage: propertyAvg ?? preferredAvg,
+        hasRoomPrices: priceSource === "room",
+        priceSource,
+        roomsTracked,
+        isReference: item.hotel_name === referenceProperty,
+      }
+    })
+    .sort((a, b) => b.avg - a.avg)
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Room Pricing Strategy</CardTitle>
-        <CardDescription>Price spread across room types (Top 8)</CardDescription>
+        <CardTitle>Price Ranges</CardTitle>
+        <CardDescription>Minimum and maximum prices observed for each property</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig} className="h-[300px] w-full">
-          <BarChart data={sortedData} margin={{ top: 20, right: 10, left: 10, bottom: 60 }}>
+        <ChartContainer config={chartConfig} className="h-[400px] w-full">
+          <BarChart data={chartData} margin={{ top: 20, right: 10, left: 10, bottom: 100 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="name"
               angle={-45}
               textAnchor="end"
-              height={100}
+              height={120}
               interval={0}
-              tick={{ fontSize: 12 }}
+              tick={{ fontSize: 11 }}
             />
             <YAxis
-              tickFormatter={(value) => `${value}%`}
-              tick={{ fontSize: 12 }}
-              label={{ value: 'Price Spread (%)', angle: -90, position: 'insideLeft' }}
+              tickFormatter={(value) => `R${(value / 1000).toFixed(0)}k`}
+              tick={{ fontSize: 11 }}
+              label={{ value: 'Price Range', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
             />
             <ChartTooltip
               content={({ active, payload }) => {
@@ -319,13 +384,30 @@ export function RoomStrategyChart({ data, referenceProperty }: RoomChartProps) {
                         <div className="flex flex-col">
                           <span className="text-[0.70rem] font-bold">
                             {data.name}
+                            {data.isReference && " ⭐"}
                           </span>
                           <span className="text-[0.70rem] text-muted-foreground">
-                            Price Spread: {data.value}%
+                            Min: R{data.min.toLocaleString('en-ZA')}
                           </span>
                           <span className="text-[0.70rem] text-muted-foreground">
-                            Tiered Pricing: {data.usesTiering ? 'Yes' : 'No'}
+                            Max: R{data.max.toLocaleString('en-ZA')}
                           </span>
+                          <span className="text-[0.70rem] text-muted-foreground">
+                            Avg: R{data.avg.toLocaleString('en-ZA')}
+                          </span>
+                          <span className="text-[0.70rem] text-muted-foreground">
+                            Basis: {data.priceSource === 'room' ? 'Room types' : 'Property summary'}
+                          </span>
+                          {data.hasRoomPrices ? (
+                            <span className="text-[0.70rem] text-muted-foreground">
+                              Property range: R{Math.round(data.propertyMin).toLocaleString('en-ZA')} - R{Math.round(data.propertyMax).toLocaleString('en-ZA')}
+                            </span>
+                          ) : null}
+                          {data.roomsTracked !== null ? (
+                            <span className="text-[0.70rem] text-muted-foreground">
+                              Room types tracked: {Number(data.roomsTracked).toFixed(0)}
+                            </span>
+                          ) : null}
                         </div>
                       </div>
                     </div>
@@ -334,8 +416,9 @@ export function RoomStrategyChart({ data, referenceProperty }: RoomChartProps) {
                 return null
               }}
             />
-            <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-              {sortedData.map((entry, index) => (
+            <Bar dataKey="min" stackId="a" fill="hsl(var(--muted))" radius={[0, 0, 0, 0]} />
+            <Bar dataKey="range" stackId="a" radius={[4, 4, 0, 0]}>
+              {chartData.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
                   fill={entry.isReference ? "hsl(var(--chart-2))" : "hsl(var(--chart-1))"}
@@ -344,212 +427,580 @@ export function RoomStrategyChart({ data, referenceProperty }: RoomChartProps) {
             </Bar>
           </BarChart>
         </ChartContainer>
-        <div className="mt-2 text-xs text-muted-foreground text-center">
-          Higher spread indicates multiple room types at different price points
+      </CardContent>
+    </Card>
+  )
+}
+
+// Daily booking status chart with competitor comparison
+interface DailyBookingStatusChartProps {
+  dailyData: Array<{
+    hotel_name: string
+    check_in_date: string
+    availability: string
+    total_price: number | null
+    day_offset: number
+    total_room_types?: number | null
+    available_room_types?: number | null
+    sold_out_room_types?: number | null
+    property_occupancy_rate?: number | null
+  }>
+  referenceProperty: string
+  roomInventoryData?: Array<{
+    hotel_name: string
+    room_type_count_estimate?: number | null
+    avg_total_room_types?: number | null
+  }>
+}
+
+export function DailyBookingStatusChart({ dailyData, referenceProperty, roomInventoryData = [] }: DailyBookingStatusChartProps) {
+  // Get unique day offsets and sort, limit to 90 days
+  const dayOffsets = Array.from(new Set(dailyData.map(d => d.day_offset)))
+    .sort((a, b) => a - b)
+    .slice(0, 90)
+  
+  type AvailabilityStatus = 'sold_out' | 'limited' | 'available' | 'unknown'
+
+  const STATUS_PRIORITY: Record<AvailabilityStatus, number> = {
+    sold_out: 3,
+    limited: 2,
+    available: 1,
+    unknown: 0,
+  }
+
+  const normalizeStatus = (value: string | undefined | null): AvailabilityStatus => {
+    if (!value) return 'unknown'
+    const trimmed = value.replace(/\s+/g, '_').toLowerCase()
+    if (trimmed === 'sold_out') return 'sold_out'
+    if (trimmed === 'available' || trimmed === 'open') return 'available'
+    if (trimmed === 'limited' || trimmed === 'partial' || trimmed === 'mixed') return 'limited'
+    return 'unknown'
+  }
+
+  type CountPair = { total: number; available: number }
+
+  type AvailabilityAccumulator = {
+    statusHint: AvailabilityStatus
+    statusPriority: number
+    bestPair: CountPair | null
+    fallbackTotal: number | null
+    fallbackAvailable: number | null
+    soldPercent: number | null
+    inventoryTotal: number | null
+  }
+
+  type AvailabilityCell = {
+    status: AvailabilityStatus
+    soldPercent: number | null
+    availabilityRatio: number | null
+    totalRooms: number | null
+    availableRooms: number | null
+    soldRooms: number | null
+  }
+
+  const roomInventoryMap = new Map(roomInventoryData.map(entry => [entry.hotel_name, entry]))
+  const accumulators = new Map<string, AvailabilityAccumulator>()
+
+  dailyData.forEach(d => {
+    const key = `${d.hotel_name}-${d.day_offset}`
+    const statusHint = normalizeStatus(d.availability)
+
+    const inventoryEntry = roomInventoryMap.get(d.hotel_name)
+    const inventoryTotal = inventoryEntry
+      ? toNumber(inventoryEntry.room_type_count_estimate)
+        ?? toNumber(inventoryEntry.avg_total_room_types)
+        ?? null
+      : null
+
+    let totalRooms = toNumber(d.total_room_types)
+    if (totalRooms !== null && totalRooms <= 0) totalRooms = null
+    let availableRooms = toNumber(d.available_room_types)
+    if (availableRooms !== null && availableRooms < 0) availableRooms = null
+    let soldRooms = toNumber(d.sold_out_room_types)
+    if (soldRooms !== null && soldRooms < 0) soldRooms = null
+
+    if (totalRooms === null && inventoryTotal !== null) {
+      totalRooms = inventoryTotal
+    } else if (totalRooms !== null && inventoryTotal !== null && inventoryTotal > totalRooms) {
+      totalRooms = inventoryTotal
+    }
+
+    if (totalRooms === null && availableRooms !== null && soldRooms !== null) {
+      const derivedTotal = availableRooms + soldRooms
+      if (derivedTotal > 0) {
+        totalRooms = derivedTotal
+      }
+    }
+
+    if (totalRooms !== null && soldRooms !== null && availableRooms === null) {
+      availableRooms = Math.max(totalRooms - soldRooms, 0)
+    }
+
+    if (totalRooms !== null && availableRooms === null) {
+      if (statusHint === 'sold_out') {
+        availableRooms = 0
+      } else if (statusHint === 'available') {
+        availableRooms = totalRooms
+      }
+    }
+
+    if (totalRooms !== null && availableRooms !== null) {
+      availableRooms = Math.min(Math.max(availableRooms, 0), totalRooms)
+    }
+
+    let pair: CountPair | null = null
+    if (totalRooms !== null && availableRooms !== null) {
+      pair = { total: totalRooms, available: availableRooms }
+      soldRooms = totalRooms - availableRooms
+    } else if (totalRooms !== null && soldRooms !== null) {
+      const derivedAvailable = Math.max(totalRooms - soldRooms, 0)
+      pair = { total: totalRooms, available: derivedAvailable }
+      availableRooms = derivedAvailable
+    }
+
+    let soldPercent: number | null = null
+    if (pair && pair.total > 0) {
+      soldPercent = ((pair.total - pair.available) / pair.total) * 100
+    } else if (soldRooms !== null && totalRooms !== null && totalRooms > 0) {
+      soldPercent = (soldRooms / totalRooms) * 100
+    } else if (d.property_occupancy_rate !== undefined && d.property_occupancy_rate !== null) {
+      const occupancy = Number(d.property_occupancy_rate)
+      if (Number.isFinite(occupancy)) {
+        soldPercent = Math.min(100, Math.max(0, occupancy))
+      }
+    }
+
+    let accumulator = accumulators.get(key)
+    if (!accumulator) {
+      accumulator = {
+        statusHint,
+        statusPriority: STATUS_PRIORITY[statusHint],
+        bestPair: pair,
+        fallbackTotal: totalRooms ?? inventoryTotal ?? null,
+        fallbackAvailable: availableRooms,
+        soldPercent,
+        inventoryTotal,
+      }
+      accumulators.set(key, accumulator)
+      return
+    }
+
+    const candidatePriority = STATUS_PRIORITY[statusHint]
+    if (candidatePriority > accumulator.statusPriority) {
+      accumulator.statusHint = statusHint
+      accumulator.statusPriority = candidatePriority
+    }
+
+    if (inventoryTotal !== null) {
+      accumulator.inventoryTotal = accumulator.inventoryTotal !== null
+        ? Math.max(accumulator.inventoryTotal, inventoryTotal)
+        : inventoryTotal
+    }
+
+    if (pair) {
+      if (!accumulator.bestPair) {
+        accumulator.bestPair = pair
+      } else if (pair.total > accumulator.bestPair.total) {
+        accumulator.bestPair = pair
+      } else if (pair.total === accumulator.bestPair.total && pair.available < accumulator.bestPair.available) {
+        accumulator.bestPair = pair
+      }
+    }
+
+    if (totalRooms !== null) {
+      accumulator.fallbackTotal = accumulator.fallbackTotal !== null
+        ? Math.max(accumulator.fallbackTotal, totalRooms)
+        : totalRooms
+    }
+
+    if (availableRooms !== null) {
+      accumulator.fallbackAvailable = accumulator.fallbackAvailable !== null
+        ? Math.min(accumulator.fallbackAvailable, availableRooms)
+        : availableRooms
+    }
+
+    if (soldPercent !== null) {
+      accumulator.soldPercent = accumulator.soldPercent !== null
+        ? Math.max(accumulator.soldPercent, soldPercent)
+        : soldPercent
+    }
+  })
+
+  const availabilityMap = new Map<string, AvailabilityCell>()
+  accumulators.forEach((accumulator, key) => {
+    let totalRooms = accumulator.bestPair?.total
+      ?? accumulator.fallbackTotal
+      ?? accumulator.inventoryTotal
+      ?? null
+
+    let availableRooms = accumulator.bestPair?.available
+      ?? accumulator.fallbackAvailable
+      ?? null
+
+    if (totalRooms !== null) {
+      if (availableRooms === null) {
+        if (accumulator.soldPercent !== null) {
+          const remaining = totalRooms * (1 - accumulator.soldPercent / 100)
+          availableRooms = Math.max(0, remaining)
+        } else if (accumulator.statusHint === 'sold_out') {
+          availableRooms = 0
+        } else if (accumulator.statusHint === 'available') {
+          availableRooms = totalRooms
+        }
+      }
+
+      if (availableRooms !== null) {
+        availableRooms = Math.min(Math.max(availableRooms, 0), totalRooms)
+      }
+    }
+
+    let availabilityRatio: number | null = null
+    let soldPercent = accumulator.soldPercent
+    let soldRooms: number | null = null
+
+    if (totalRooms !== null && availableRooms !== null && totalRooms > 0) {
+      availabilityRatio = availableRooms / totalRooms
+      soldRooms = totalRooms - availableRooms
+      soldPercent = (soldRooms / totalRooms) * 100
+    }
+
+    if (soldPercent !== null) {
+      soldPercent = Math.min(100, Math.max(0, soldPercent))
+    }
+
+    let status: AvailabilityStatus = accumulator.statusHint
+    if (totalRooms !== null && availableRooms !== null) {
+      if (availableRooms <= 0) {
+        status = 'sold_out'
+      } else if (availableRooms < totalRooms) {
+        status = 'limited'
+      } else {
+        status = 'available'
+      }
+    } else if (soldPercent !== null) {
+      if (soldPercent >= 100) {
+        status = 'sold_out'
+      } else if (soldPercent > 0) {
+        status = 'limited'
+      } else {
+        status = 'available'
+      }
+    }
+
+    availabilityMap.set(key, {
+      status,
+      soldPercent,
+      availabilityRatio,
+      totalRooms,
+      availableRooms,
+      soldRooms,
+    })
+  })
+
+  // Rank hotels by occupancy (percentage of sold-out days)
+  const hotels = Array.from(new Set(dailyData.map(d => d.hotel_name)))
+    .map(hotel => {
+      const soldOutDays = dayOffsets.reduce((sum, offset) => {
+        const cell = availabilityMap.get(`${hotel}-${offset}`)
+        return cell?.status === 'sold_out' ? sum + 1 : sum
+      }, 0)
+      const occupancyRate = dayOffsets.length > 0 ? soldOutDays / dayOffsets.length : 0
+      return { hotel, occupancyRate }
+    })
+    .sort((a, b) => {
+      if (b.occupancyRate !== a.occupancyRate) {
+        return b.occupancyRate - a.occupancyRate
+      }
+      return a.hotel.localeCompare(b.hotel)
+    })
+    .map(entry => entry.hotel)
+  
+  const getDateLabel = (offset: number) => {
+    const date = new Date()
+    date.setDate(date.getDate() + offset)
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+  
+  const getWeekLabel = (offset: number) => {
+    const date = new Date()
+    date.setDate(date.getDate() + offset)
+    return date.toLocaleDateString('en-US', { day: 'numeric' })
+  }
+  
+  // Group days into weeks for header
+  const weeks: number[][] = []
+  let currentWeek: number[] = []
+  dayOffsets.forEach((offset, index) => {
+    currentWeek.push(offset)
+    if (currentWeek.length >= 7 || index === dayOffsets.length - 1) {
+      weeks.push([...currentWeek])
+      currentWeek = []
+    }
+  })
+  
+  const computeCellColor = (cell: AvailabilityCell | undefined) => {
+    if (!cell) {
+      return '#e2e8f0'
+    }
+
+    if (cell.status === 'sold_out') {
+      return '#ffffff'
+    }
+
+    if (cell.status === 'available' || cell.status === 'limited') {
+      if (cell.availabilityRatio !== null) {
+        const alpha = Math.min(1, Math.max(0.08, cell.availabilityRatio))
+        return `rgba(34, 197, 94, ${alpha.toFixed(3)})`
+      }
+      return 'rgba(34, 197, 94, 1)'
+    }
+
+    return '#e2e8f0'
+  }
+  
+  const statusLabel: Record<AvailabilityStatus, string> = {
+    sold_out: 'sold out',
+    limited: 'limited availability',
+    available: 'available',
+    unknown: 'no data',
+  }
+
+  const getCellTitle = (hotel: string, offset: number) => {
+    const cell = availabilityMap.get(`${hotel}-${offset}`)
+    const status = cell ? statusLabel[cell.status] : statusLabel.unknown
+    const total = cell?.totalRooms
+    const available = cell?.availableRooms
+    const soldRooms = cell?.soldRooms ?? (total != null && available != null ? total - available : null)
+    const soldPercent = cell?.soldPercent != null ? Math.round(cell.soldPercent) : null
+
+    const soldInfo = total != null && available != null
+      ? ` • ${Math.max(soldRooms ?? total - available, 0).toFixed(0)}/${total.toFixed(0)} rooms sold (${available.toFixed(0)} available${soldPercent != null ? ` • ${soldPercent}% sold` : ''})`
+      : soldPercent != null
+        ? ` • ${soldPercent}% rooms sold`
+        : ''
+
+    return `${hotel} - Day ${offset} (${getDateLabel(offset)}): ${status}${soldInfo}`
+  }
+  
+  const propertyColumnWidth = 180
+  const dayColumnWidth = `calc((100% - ${propertyColumnWidth}px) / ${dayOffsets.length || 1})`
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>90-Day Booking Status Heatmap</CardTitle>
+        <CardDescription>
+          White = Booked, deeper green = more rooms available • Hover any day to view % of rooms sold
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="p-6 pb-4">
+          {/* Legend */}
+          <div className="flex items-center gap-6 text-xs border-b pb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-500 rounded border border-green-600"></div>
+              <span>Available</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-white rounded border border-gray-200"></div>
+              <span>Booked</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div
+                className="h-3 w-12 rounded border border-green-600/40"
+                style={{ background: 'linear-gradient(to right, rgba(34,197,94,1), rgba(34,197,94,0.1))' }}
+              ></div>
+              <span>Lighter = fewer rooms left</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-medium">⭐ {referenceProperty}</span>
+            </div>
+          </div>
+        </div>
+        
+        {/* Heatmap - Compact and fills width */}
+        <div className="px-6 pb-6">
+          <table className="border-collapse text-xs w-full table-fixed">
+            <colgroup>
+              <col style={{ width: `${propertyColumnWidth}px` }} />
+              {dayOffsets.map(offset => (
+                <col key={`col-${offset}`} style={{ width: dayColumnWidth }} />
+              ))}
+            </colgroup>
+            <thead>
+              <tr>
+                <th className="sticky left-6 bg-background border-r border-b p-1 text-left font-medium text-[11px] z-10">
+                  Property
+                </th>
+                {weeks.map((week, weekIndex) => (
+                  <th 
+                    key={weekIndex}
+                    colSpan={week.length}
+                    className="border-b border-r p-1 text-center font-medium text-[10px]"
+                  >
+                    W{weekIndex + 1}
+                  </th>
+                ))}
+              </tr>
+              <tr>
+                <th className="sticky left-6 bg-background border-r border-b p-0.5 z-10"></th>
+                {dayOffsets.map(offset => (
+                  <th 
+                    key={offset}
+                    className="border-b p-0 text-center text-[9px] font-normal text-muted-foreground"
+                  >
+                    {getWeekLabel(offset)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {hotels.map((hotel, hotelIndex) => {
+                const isReference = hotel === referenceProperty
+                const rowBackground = isReference ? 'bg-amber-100/40' : hotelIndex % 2 === 0 ? 'bg-muted/20' : ''
+                const stickyBg = isReference ? 'bg-amber-100/70' : 'bg-background'
+                return (
+                  <tr key={hotel} className={`${rowBackground}`}>
+                    <td className={`sticky left-6 ${stickyBg} border-r p-1 text-[10px] font-medium truncate z-10`}>
+                    {hotel === referenceProperty && "⭐"}
+                    <span className="ml-0.5">{hotel}</span>
+                  </td>
+                  {dayOffsets.map(offset => {
+                    const title = getCellTitle(hotel, offset)
+                    const cell = availabilityMap.get(`${hotel}-${offset}`)
+                    const soldPercentAttr = cell?.soldPercent != null ? Math.round(cell.soldPercent) : undefined
+                    const background = computeCellColor(cell)
+
+                    return (
+                      <td
+                        key={offset}
+                        className="p-0 border-r border-b h-5 hover:opacity-80 transition-opacity cursor-pointer"
+                        title={title}
+                        aria-label={title}
+                        style={{ background }}
+                        data-sold-percent={soldPercentAttr}
+                      />
+                    )
+                  })}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       </CardContent>
     </Card>
   )
 }
 
-interface OpportunityCostChartProps {
-  currentPrice: number
-  currentOccupancy: number
+// Daily availability components
+interface DailyAvailabilityChartProps {
+  dailyData: Array<{
+    hotel_name: string
+    check_in_date: string
+    availability: string
+    total_price: number | null
+    day_offset: number
+  }>
   referenceProperty: string
 }
 
-export function OpportunityCostChart({ currentPrice, currentOccupancy, referenceProperty }: OpportunityCostChartProps) {
-  // Generate theoretical data points showing occupancy vs net revenue
-  // Assumptions:
-  // - Current position is baseline
-  // - Revenue increases linearly with occupancy
-  // - Operating costs increase exponentially at higher occupancy (wear & tear, stress on property)
-  // - Optimal occupancy is typically 75-85% to balance revenue and property preservation
+export function DailyAvailabilityChart({ dailyData, referenceProperty }: DailyAvailabilityChartProps) {
+  // Group data by hotel and day_offset
+  const hotels = Array.from(new Set(dailyData.map(d => d.hotel_name)))
   
-  const generateOpportunityData = () => {
-    const dataPoints = []
-    
-    // Generate occupancy scenarios from 40% to 100%
-    for (let occupancy = 40; occupancy <= 100; occupancy += 5) {
-      // Calculate gross revenue (price * occupancy)
-      const revenue = currentPrice * (occupancy / 100) * 30 // Assuming 30 days
-      
-      // Calculate operating costs with exponential increase at high occupancy
-      // Base costs (staff, utilities, basic maintenance): 25% of revenue
-      const baseCostRate = 0.25
-      const baseCost = revenue * baseCostRate
-      
-      // Variable costs increase exponentially above 75% occupancy
-      // This represents accelerated wear & tear, increased cleaning frequency, 
-      // maintenance urgency, utility spikes, etc.
-      let variableCostMultiplier = 1
-      if (occupancy > 75) {
-        // Exponential curve: costs double between 75% and 95%
-        const stressFactor = (occupancy - 75) / 20 // 0 at 75%, 1 at 95%
-        variableCostMultiplier = 1 + (Math.pow(stressFactor, 2.5) * 1.5) // Exponential growth
-      }
-      
-      // Additional high-occupancy costs
-      const variableCost = revenue * 0.15 * variableCostMultiplier
-      
-      // Total operating costs
-      const totalCost = baseCost + variableCost
-      
-      // Net revenue
-      const netRevenue = revenue - totalCost
-      
-      // Calculate opportunity cost relative to current position
-      const currentRevenue = currentPrice * (currentOccupancy / 100) * 30
-      const currentBaseCost = currentRevenue * baseCostRate
-      let currentVariableMultiplier = 1
-      if (currentOccupancy > 75) {
-        const currentStressFactor = (currentOccupancy - 75) / 20
-        currentVariableMultiplier = 1 + (Math.pow(currentStressFactor, 2.5) * 1.5)
-      }
-      const currentVariableCost = currentRevenue * 0.15 * currentVariableMultiplier
-      const currentNetRevenue = currentRevenue - (currentBaseCost + currentVariableCost)
-      
-      const opportunityCost = netRevenue - currentNetRevenue
-      
-      dataPoints.push({
-        occupancy: occupancy,
-        revenue: Math.round(revenue),
-        operatingCost: Math.round(totalCost),
-        netRevenue: Math.round(netRevenue),
-        opportunityCost: Math.round(opportunityCost),
-        isCurrent: Math.abs(occupancy - currentOccupancy) < 3
-      })
-    }
-    
-    return dataPoints
-  }
+  // Calculate average availability per hotel (excluding reference)
+  const hotelAvailability = hotels.map(hotel => {
+    const dataPoints = dailyData.filter(d => d.hotel_name === hotel)
+    const availableCount = dataPoints.filter(d => d.availability === "available").length
+    const availabilityRate = dataPoints.length > 0 ? (availableCount / dataPoints.length) * 100 : 0
+    return { hotel, availabilityRate, isReference: hotel === referenceProperty }
+  }).sort((a, b) => a.availabilityRate - b.availabilityRate) // Sort by availability (lowest = most booked)
   
-  const data = generateOpportunityData()
-  
-  // Find optimal point (highest net revenue, but cap at 90% as true optimal)
-  const optimalPoint = data
-    .filter(d => d.occupancy <= 90) // Don't consider >90% as optimal
-    .reduce((max, point) => 
-      point.netRevenue > max.netRevenue ? point : max
-    , data[0])
-
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Occupancy Opportunity Cost Analysis</CardTitle>
+        <CardTitle>Daily Availability Tracking</CardTitle>
         <CardDescription>
-          Revenue vs operating costs across occupancy levels for {referenceProperty}
+          Properties ranked by booking pressure (lowest availability = highest demand)
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig} className="h-[400px] w-full">
-          <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis
-              dataKey="occupancy"
-              angle={-45}
-              textAnchor="end"
-              height={80}
-              interval={0}
-              tick={{ fontSize: 11 }}
-              label={{ value: 'Occupancy Rate (%)', position: 'insideBottom', offset: -10 }}
-            />
-            <YAxis
-              tickFormatter={(value) => `R${value}`}
-              tick={{ fontSize: 11 }}
-              label={{ value: 'Revenue (ZAR)', angle: -90, position: 'insideLeft' }}
-            />
-            <ChartTooltip
-              content={({ active, payload }) => {
-                if (active && payload && payload.length) {
-                  const data = payload[0].payload
-                  return (
-                    <div className="rounded-lg border bg-background p-3 shadow-sm">
-                      <div className="grid gap-2">
-                        <div className="flex flex-col">
-                          <span className="text-xs font-bold mb-1">
-                            {data.isCurrent && '⭐ '}Occupancy: {data.occupancy}%
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            Gross Revenue: R{data.revenue.toLocaleString()}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            Operating Costs: R{data.operatingCost.toLocaleString()}
-                          </span>
-                          <span className="text-xs font-semibold mt-1 text-green-600">
-                            Net Revenue: R{data.netRevenue.toLocaleString()}
-                          </span>
-                          <span className={`text-xs mt-1 font-medium ${data.opportunityCost >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            vs Current: {data.opportunityCost >= 0 ? '+' : ''}R{data.opportunityCost.toLocaleString()}
-                          </span>
+        <div className="space-y-4">
+          {/* Ranking Table */}
+          <div className="rounded-md border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  <th className="p-2 text-left font-medium">Rank</th>
+                  <th className="p-2 text-left font-medium">Property</th>
+                  <th className="p-2 text-right font-medium">Availability</th>
+                  <th className="p-2 text-left font-medium">Booking Pressure</th>
+                </tr>
+              </thead>
+              <tbody>
+                {hotelAvailability.map((h, index) => (
+                  <tr 
+                    key={h.hotel} 
+                    className={`border-b last:border-0 ${h.isReference ? 'bg-muted/30' : ''}`}
+                  >
+                    <td className="p-2 font-medium">{index + 1}</td>
+                    <td className="p-2">
+                      {h.hotel}
+                      {h.isReference && " ⭐"}
+                    </td>
+                    <td className="p-2 text-right">
+                      <span className={h.availabilityRate < 30 ? 'text-red-600 font-medium' : h.availabilityRate < 60 ? 'text-orange-600' : 'text-green-600'}>
+                        {h.availabilityRate.toFixed(1)}%
+                      </span>
+                    </td>
+                    <td className="p-2">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full ${h.availabilityRate < 30 ? 'bg-red-500' : h.availabilityRate < 60 ? 'bg-orange-500' : 'bg-green-500'}`}
+                            style={{ width: `${100 - h.availabilityRate}%` }}
+                          />
                         </div>
+                        <span className="text-xs text-muted-foreground w-16">
+                          {(100 - h.availabilityRate).toFixed(0)}% booked
+                        </span>
                       </div>
-                    </div>
-                  )
-                }
-                return null
-              }}
-            />
-            <ReferenceLine 
-              x={optimalPoint.occupancy} 
-              stroke="hsl(var(--primary))" 
-              strokeDasharray="5 5"
-              strokeWidth={2}
-              label={{ 
-                value: `Optimal: ${optimalPoint.occupancy}%`, 
-                position: 'top', 
-                fill: 'hsl(var(--primary))',
-                fontSize: 12,
-                fontWeight: 'bold'
-              }}
-            />
-            <Bar dataKey="netRevenue" radius={[4, 4, 0, 0]}>
-              {data.map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={
-                    entry.isCurrent 
-                      ? "hsl(var(--chart-2))" 
-                      : entry.occupancy === optimalPoint.occupancy
-                      ? "hsl(var(--primary))"
-                      : "hsl(var(--chart-1))"
-                  }
-                  opacity={entry.isCurrent ? 1 : 0.8}
-                />
-              ))}
-            </Bar>
-          </BarChart>
-        </ChartContainer>
-        <div className="mt-3 space-y-2">
-          <div className="text-xs text-muted-foreground text-center">
-            Operating costs increase exponentially above 75% occupancy due to accelerated wear & tear, maintenance demands, and property stress
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <div className="flex justify-center gap-6 text-xs">
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 rounded" style={{ backgroundColor: 'hsl(var(--chart-2))' }}></div>
-              <span>Current: {currentOccupancy.toFixed(1)}%</span>
+          
+          {/* Key Insights */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div className="rounded-md border p-3">
+              <div className="text-muted-foreground mb-1">Most In-Demand</div>
+              <div className="font-semibold">{hotelAvailability[0]?.hotel}</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {hotelAvailability[0]?.availabilityRate.toFixed(1)}% available
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 rounded" style={{ backgroundColor: 'hsl(var(--primary))' }}></div>
-              <span>Optimal: {optimalPoint.occupancy}%</span>
+            <div className="rounded-md border p-3">
+              <div className="text-muted-foreground mb-1">{referenceProperty} Rank</div>
+              <div className="font-semibold">
+                #{hotelAvailability.findIndex(h => h.isReference) + 1} of {hotels.length}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {hotelAvailability.find(h => h.isReference)?.availabilityRate.toFixed(1)}% available
+              </div>
+            </div>
+            <div className="rounded-md border p-3">
+              <div className="text-muted-foreground mb-1">Market Average</div>
+              <div className="font-semibold">
+                {(hotelAvailability.reduce((sum, h) => sum + h.availabilityRate, 0) / hotelAvailability.length).toFixed(1)}%
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                availability across all properties
+              </div>
             </div>
           </div>
-          {Math.abs(optimalPoint.occupancy - currentOccupancy) > 5 && (
-            <div className="mt-2 p-2 rounded-md bg-muted/50 text-xs text-center">
-              <span className={optimalPoint.occupancy > currentOccupancy ? 'text-green-600 font-medium' : 'text-orange-600 font-medium'}>
-                {optimalPoint.occupancy > currentOccupancy 
-                  ? `Potential to increase net revenue by R${Math.abs(optimalPoint.opportunityCost).toLocaleString()} by targeting ${optimalPoint.occupancy}% occupancy` 
-                  : `Current occupancy (${currentOccupancy.toFixed(1)}%) exceeds optimal. Consider reducing to ${optimalPoint.occupancy}% to maximize net revenue and reduce property stress.`}
-              </span>
-            </div>
-          )}
-          {Math.abs(optimalPoint.occupancy - currentOccupancy) <= 5 && (
-            <div className="mt-2 p-2 rounded-md bg-green-50 text-xs text-center">
-              <span className="text-green-700 font-medium">
-                ✓ Operating near optimal occupancy level ({optimalPoint.occupancy}%)
-              </span>
-            </div>
-          )}
         </div>
       </CardContent>
     </Card>
