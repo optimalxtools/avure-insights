@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import {
   ChartConfig,
   ChartContainer,
@@ -34,6 +35,8 @@ const toNumber = (value: unknown): number | null => {
   }
   return null
 }
+
+const formatCurrency = (value: number) => `R${Math.round(value).toLocaleString("en-ZA")}`
 
 interface PriceChartProps {
   pricingData: Array<{
@@ -79,6 +82,65 @@ export function PriceComparisonChart({ pricingData, occupancyData, referenceProp
 
   const avgPrice = chartData.reduce((sum, item) => sum + item.price, 0) / chartData.length
   const avgOccupancy = chartData.reduce((sum, item) => sum + item.occupancy, 0) / chartData.length
+  const referencePoint = chartData.find((item) => item.isReference) ?? null
+  const referenceName = referenceProperty || "Reference property"
+
+  const summaryCards: Array<{ key: string; type: "insight" | "recommendation"; title: string; body: string }> = []
+
+  if (referencePoint) {
+    const occupancyDiff = referencePoint.occupancy - avgOccupancy
+    const priceDiff = referencePoint.price - avgPrice
+    const occupancyCopy = Math.abs(occupancyDiff) < 0.5
+      ? "is in line with"
+      : `is ${Math.abs(occupancyDiff).toFixed(1)}pp ${occupancyDiff >= 0 ? "above" : "below"}`
+    const priceCopy = Math.abs(priceDiff) < 200
+      ? "in line with"
+      : `${priceDiff >= 0 ? "above" : "below"} peers by ${formatCurrency(Math.abs(priceDiff))}`
+
+    summaryCards.push({
+      key: "reference-market",
+      type: "insight",
+      title: "Reference positioning",
+      body: `${referenceName} ${occupancyCopy} the market occupancy average and is priced ${priceCopy}.`,
+    })
+  }
+
+  const leadingPeer = chartData
+    .filter((item) => !item.isReference)
+    .sort((a, b) => b.occupancy - a.occupancy || a.price - b.price)[0]
+
+  if (leadingPeer && referencePoint) {
+    const occupancyLead = leadingPeer.occupancy - referencePoint.occupancy
+    const priceGap = referencePoint.price - leadingPeer.price
+    const occupancyStatement = occupancyLead > 1
+      ? `${leadingPeer.name} is achieving ${occupancyLead.toFixed(1)}pp higher occupancy`
+      : `${leadingPeer.name} has comparable occupancy`
+    const priceStatement = Math.abs(priceGap) < 200
+      ? "at similar pricing"
+      : priceGap > 0
+        ? `while charging ${formatCurrency(Math.abs(priceGap))} less`
+        : `despite charging ${formatCurrency(Math.abs(priceGap))} more`
+
+    summaryCards.push({
+      key: "peer-benchmark",
+      type: "recommendation",
+      title: "Benchmark to watch",
+      body: `${occupancyStatement} ${priceStatement}. Test targeted offers to close the occupancy gap.`,
+    })
+  }
+
+  while (summaryCards.length < 2) {
+    const fallbackType = summaryCards.length === 0 ? "insight" : "recommendation"
+    summaryCards.push({
+      key: `fallback-${summaryCards.length}`,
+      type: fallbackType,
+      title: fallbackType === "insight" ? "Data coverage" : "Next action",
+      body:
+        fallbackType === "insight"
+          ? "Collect more competitor pricing data to sharpen market positioning benchmarks."
+          : "Refresh Price-Wise data after rate changes to confirm impact on demand.",
+    })
+  }
 
   return (
     <Card>
@@ -87,6 +149,22 @@ export function PriceComparisonChart({ pricingData, occupancyData, referenceProp
         <CardDescription>Price vs Occupancy - optimal position is top-right</CardDescription>
       </CardHeader>
       <CardContent>
+        <div className="mb-4 grid gap-3 sm:grid-cols-2">
+          {summaryCards.map((card) => (
+            <div key={card.key} className="rounded-lg border bg-muted/30 p-3">
+              <div className="mb-1 flex items-center gap-2">
+                <Badge
+                  variant={card.type === "insight" ? "secondary" : "default"}
+                  className="uppercase tracking-wide"
+                >
+                  {card.type === "insight" ? "Insight" : "Recommendation"}
+                </Badge>
+                <span className="text-xs font-semibold text-muted-foreground">{card.title}</span>
+              </div>
+              <p className="text-sm leading-5 text-foreground">{card.body}</p>
+            </div>
+          ))}
+        </div>
         <ChartContainer config={chartConfig} className="h-[400px] w-full">
           <ScatterChart margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -431,6 +509,48 @@ export function OpportunityCostChart({ currentPrice, currentOccupancy, reference
     .filter((point) => point.occupancy <= 90)
     .reduce((max, point) => (point.netRevenue > max.netRevenue ? point : max), chartPoints[0])
 
+  const referenceName = referenceProperty || "Reference property"
+  const currentPoint = chartPoints.reduce((closest, point) => {
+    if (point.isCurrent) return point
+    const currentDistance = Math.abs(point.occupancy - currentOccupancy)
+    const closestDistance = Math.abs((closest.isCurrent ? currentOccupancy : closest.occupancy) - currentOccupancy)
+    return currentDistance < closestDistance ? point : closest
+  }, chartPoints[0])
+
+  const netRevenueDelta = optimalPoint.netRevenue - currentPoint.netRevenue
+
+  const opportunityCards: Array<{ key: string; type: "insight" | "recommendation"; title: string; body: string }> = [
+    {
+      key: "current-snapshot",
+      type: "insight",
+      title: "Current run-rate",
+      body: `${referenceName} nets ${formatCurrency(currentPoint.netRevenue)} at ${currentPoint.occupancy}% occupancy with operating costs of ${formatCurrency(currentPoint.operatingCost)}.`,
+    },
+  ]
+
+  if (Math.abs(optimalPoint.occupancy - currentPoint.occupancy) <= 2) {
+    opportunityCards.push({
+      key: "maintain-course",
+      type: "recommendation",
+      title: "Stay the course",
+      body: `Current performance is within ${Math.abs(optimalPoint.occupancy - currentPoint.occupancy).toFixed(1)}pp of the optimal ${optimalPoint.occupancy}% occupancy. Maintain pricing and monitor demand shifts.`,
+    })
+  } else if (optimalPoint.occupancy > currentPoint.occupancy) {
+    opportunityCards.push({
+      key: "push-demand",
+      type: "recommendation",
+      title: "Stimulate demand",
+      body: `Target ${optimalPoint.occupancy}% occupancy to unlock roughly ${formatCurrency(optimalPoint.opportunityCost)} in net revenue without materially increasing operating stress.`,
+    })
+  } else {
+    opportunityCards.push({
+      key: "optimize-load",
+      type: "recommendation",
+      title: "Relieve load",
+      body: `Occupancy sits ${Math.abs(optimalPoint.occupancy - currentPoint.occupancy).toFixed(1)}pp above the optimal ${optimalPoint.occupancy}% level, costing about ${formatCurrency(Math.abs(netRevenueDelta))} in net revenue. Consider premium pricing or minimum stays to protect margin.`,
+    })
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -438,6 +558,22 @@ export function OpportunityCostChart({ currentPrice, currentOccupancy, reference
         <CardDescription>Revenue vs operating costs across occupancy levels for {referenceProperty}</CardDescription>
       </CardHeader>
       <CardContent>
+        <div className="mb-4 grid gap-3 sm:grid-cols-2">
+          {opportunityCards.map((card) => (
+            <div key={card.key} className="rounded-lg border bg-muted/30 p-3">
+              <div className="mb-1 flex items-center gap-2">
+                <Badge
+                  variant={card.type === "insight" ? "secondary" : "default"}
+                  className="uppercase tracking-wide"
+                >
+                  {card.type === "insight" ? "Insight" : "Recommendation"}
+                </Badge>
+                <span className="text-xs font-semibold text-muted-foreground">{card.title}</span>
+              </div>
+              <p className="text-sm leading-5 text-foreground">{card.body}</p>
+            </div>
+          ))}
+        </div>
         <ChartContainer config={chartConfig} className="h-[400px] w-full">
           <BarChart data={chartPoints} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
             <CartesianGrid strokeDasharray="3 3" />
