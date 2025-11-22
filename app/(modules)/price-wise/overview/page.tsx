@@ -139,7 +139,7 @@ export default async function Page() {
           </div>
         </div>
       </header>
-      <div className="flex flex-1 flex-col gap-4 px-2 md:px-4 pt-0 md:pt-0 pb-2 md:pb-4 overflow-x-auto" style={{ maxWidth: "100vw" }}>
+  <div className="flex min-w-0 flex-1 flex-col gap-4 px-2 md:px-4 pt-0 md:pt-0 pb-2 md:pb-4 overflow-x-auto" style={{ maxWidth: "100vw" }}>
         <div className="px-2 md:px-0">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
@@ -229,8 +229,8 @@ export default async function Page() {
                       <div className="flex-1">
                         <p className="text-sm text-muted-foreground mb-2">Property Price Range</p>
                         <div className="flex items-baseline gap-2">
-                          <h3 className="text-2xl font-bold tracking-tight">
-                            R {refPricing.min_price.toLocaleString('en-ZA', { minimumFractionDigits: 0 })} - {refPricing.max_price.toLocaleString('en-ZA', { minimumFractionDigits: 0 })}
+                          <h3 className="text-xl font-bold tracking-tight">
+                            R {(refPricing.min_price / 1000).toFixed(1)}k - {(refPricing.max_price / 1000).toFixed(1)}k
                           </h3>
                           {renderDeltaBadge(
                             formatDelta(
@@ -290,7 +290,7 @@ export default async function Page() {
             </div>
 
             {/* Data Overview Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-w-0">
               {hasPricingData && (
                 <SimplePriceChart 
                   snapshots={priceChartSnapshots}

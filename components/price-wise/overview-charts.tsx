@@ -868,7 +868,7 @@ export function DailyBookingStatusChart({ snapshots }: DailyBookingStatusChartPr
                   min-width: 150px;
                 }
               `}</style>
-              <div className="p-6 pb-4">
+              <div className="px-6 py-4">
                 <div className="flex items-center gap-6 text-xs border-b pb-3">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 bg-green-500 rounded border border-green-600" />
@@ -890,9 +890,10 @@ export function DailyBookingStatusChart({ snapshots }: DailyBookingStatusChartPr
                   </div>
                 </div>
               </div>
-              <div className="px-6 pb-6 overflow-x-auto">
-                <table className="border-collapse text-xs w-full min-w-[1400px] table-fixed">
-                  <colgroup>
+              <div className="px-6 pb-6">
+                <div className="overflow-x-auto w-full">
+                  <table className="border-collapse text-xs w-full table-fixed">
+                    <colgroup>
                     <col style={{ width: `${propertyColumnWidth}px` }} />
                     {heatmap.dayOffsets.map((offset) => (
                       <col key={`col-${offset}`} style={{ width: dayColumnWidth }} />
@@ -900,7 +901,7 @@ export function DailyBookingStatusChart({ snapshots }: DailyBookingStatusChartPr
                   </colgroup>
                   <thead>
                     <tr>
-                      <th className="sticky left-6 bg-background border-r border-b p-1 text-left font-medium text-[11px] z-10">
+                      <th className="sticky left-0 bg-background border-r border-b p-1 pl-6 text-left font-medium text-[11px] z-10">
                         Property
                       </th>
                       {heatmap.weeks.map((week, weekIndex) => (
@@ -914,7 +915,7 @@ export function DailyBookingStatusChart({ snapshots }: DailyBookingStatusChartPr
                       ))}
                     </tr>
                     <tr>
-                      <th className="sticky left-6 bg-background border-r border-b p-0.5 z-10" />
+                      <th className="sticky left-0 bg-background border-r border-b p-0.5 pl-6 z-10" />
                       {heatmap.dayOffsets.map((offset) => (
                         <th
                           key={offset}
@@ -932,7 +933,7 @@ export function DailyBookingStatusChart({ snapshots }: DailyBookingStatusChartPr
                       const stickyBg = isReference ? "bg-amber-100/70" : "bg-background"
                       return (
                         <tr key={hotel} className={rowBackground}>
-                          <td className={`sticky left-6 ${stickyBg} border-r p-1 text-[10px] font-medium truncate z-10`}>
+                          <td className={`sticky left-0 ${stickyBg} border-r p-1 pl-6 text-[10px] font-medium truncate z-10`}>
                             {hotel === activeSnapshot.referenceProperty && "⭐"}
                             <span className="ml-0.5">{hotel}</span>
                           </td>
@@ -954,6 +955,7 @@ export function DailyBookingStatusChart({ snapshots }: DailyBookingStatusChartPr
                     })}
                   </tbody>
                 </table>
+                </div>
               </div>
             </>
           )}
