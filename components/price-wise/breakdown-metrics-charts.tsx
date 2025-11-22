@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Cell, ReferenceLine, Scatter, ScatterChart, ZAxis, LabelList } from "recharts"
 import type { LabelProps } from "recharts"
 import {
@@ -16,6 +16,7 @@ import {
   ChartTooltip,
 } from "@/components/ui/chart"
 import { Button } from "@/components/ui/button"
+import { SnapshotToggle } from "@/components/price-wise/snapshot-toggle"
 import {
   Table,
   TableBody,
@@ -65,7 +66,14 @@ const splitPropertyLabel = (name: string): { line1: string; line2: string } => {
   }
 }
 
-interface PriceDifferenceChartProps {
+type SnapshotMeta = {
+  id: string
+  label: string
+  dateLabel: string
+  fullLabel: string
+}
+
+type PriceDifferenceSnapshot = SnapshotMeta & {
   comparisonData: Array<{
     hotel_name: string
     avg_price: number
@@ -75,14 +83,41 @@ interface PriceDifferenceChartProps {
     position: string
   }>
   referenceProperty: string
+}
+
+interface PriceDifferenceChartProps {
+  snapshots: PriceDifferenceSnapshot[]
   className?: string
 }
 
-export function PriceDifferenceChart({ comparisonData, referenceProperty, className }: PriceDifferenceChartProps) {
+export function PriceDifferenceChart({ snapshots, className }: PriceDifferenceChartProps) {
   const [showTable, setShowTable] = useState(false)
-  
-  const chartData = comparisonData
-    .map((item) => {
+  const [activeSnapshotId, setActiveSnapshotId] = useState(() => snapshots[0]?.id ?? "")
+
+  useEffect(() => {
+    if (snapshots.length === 0) {
+      if (activeSnapshotId !== "") {
+        setActiveSnapshotId("")
+      }
+      return
+    }
+
+    if (!snapshots.some((snapshot) => snapshot.id === activeSnapshotId)) {
+      setActiveSnapshotId(snapshots[0].id)
+    }
+  }, [snapshots, activeSnapshotId])
+
+  const options = useMemo(
+    () => snapshots.map((snapshot) => ({ id: snapshot.id, label: snapshot.label, dateLabel: snapshot.dateLabel })),
+    [snapshots],
+  )
+
+  const activeSnapshot = snapshots.find((snapshot) => snapshot.id === activeSnapshotId) ?? snapshots[0] ?? null
+
+  const chartData = useMemo(() => {
+    if (!activeSnapshot) return []
+
+    return activeSnapshot.comparisonData.map((item) => {
       const priceDiff = toNumber(item.price_vs_ref) ?? 0
       const priceDiffPct = toNumber(item.price_vs_ref_pct) ?? 0
 
@@ -90,9 +125,14 @@ export function PriceDifferenceChart({ comparisonData, referenceProperty, classN
         property: item.hotel_name,
         priceDiff,
         priceDiffPct,
-        isReference: item.hotel_name === referenceProperty,
+        isReference: item.hotel_name === activeSnapshot.referenceProperty,
       }
     })
+  }, [activeSnapshot])
+
+  if (!activeSnapshot) {
+    return null
+  }
 
   const maxAbsDiff = chartData.length
     ? Math.max(...chartData.map(d => Math.abs(d.priceDiff)))
@@ -101,23 +141,43 @@ export function PriceDifferenceChart({ comparisonData, referenceProperty, classN
   const cardClasses = `flex w-full flex-col ${className ?? ""}`
     .replace(/\s+/g, " ")
     .trim()
+
+  const handleSnapshotChange = (nextId: string) => {
+    setActiveSnapshotId(nextId)
+  }
   
   return (
     <Card className={cardClasses}>
       <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
             <CardTitle>Price Difference Analysis</CardTitle>
             <CardDescription>
-              Price differences vs {referenceProperty}
+              Price differences vs {activeSnapshot.referenceProperty}
             </CardDescription>
+            <div className="mt-3 sm:hidden">
+              <SnapshotToggle
+                options={options}
+                value={activeSnapshot.id}
+                onChange={handleSnapshotChange}
+                disabled={snapshots.length <= 1}
+              />
+            </div>
           </div>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setShowTable(!showTable)}
-            className="ml-auto"
-          >
+          <div className="flex items-center gap-6">
+            <div className="hidden sm:block">
+              <SnapshotToggle
+                options={options}
+                value={activeSnapshot.id}
+                onChange={handleSnapshotChange}
+                disabled={snapshots.length <= 1}
+              />
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowTable(!showTable)}
+            >
             {showTable ? (
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="20" x2="18" y2="10"/>
@@ -133,6 +193,7 @@ export function PriceDifferenceChart({ comparisonData, referenceProperty, classN
               </svg>
             )}
           </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col p-0">
@@ -232,11 +293,11 @@ export function PriceDifferenceChart({ comparisonData, referenceProperty, classN
               </TableRow>
             </TableHeader>
             <TableBody>
-              {comparisonData.map((row, index) => {
+              {activeSnapshot.comparisonData.map((row, index) => {
                 const priceDiff = toNumber(row.price_vs_ref) ?? 0
                 const priceDiffPct = toNumber(row.price_vs_ref_pct) ?? 0
                 const isLower = priceDiff < 0
-                const isReference = row.hotel_name === referenceProperty
+                const isReference = row.hotel_name === activeSnapshot.referenceProperty
                 
                 return (
                   <TableRow key={index} className={isReference ? "bg-muted/50" : ""}>
@@ -264,7 +325,7 @@ export function PriceDifferenceChart({ comparisonData, referenceProperty, classN
   )
 }
 
-interface PriceRangeChartProps {
+interface PriceRangeSnapshot extends SnapshotMeta {
   pricingData: Array<{
     hotel_name: string
     avg_price_per_night: number
@@ -272,6 +333,10 @@ interface PriceRangeChartProps {
     max_price: number
   }>
   referenceProperty: string
+}
+
+interface PriceRangeChartProps {
+  snapshots: PriceRangeSnapshot[]
   className?: string
 }
 
@@ -299,10 +364,27 @@ function isPriceRangeShapeProps(value: unknown): value is PriceRangeShapeProps {
   )
 }
 
-export function PriceRangeChart({ pricingData, referenceProperty, className }: PriceRangeChartProps) {
+export function PriceRangeChart({ snapshots, className }: PriceRangeChartProps) {
   const [showTable, setShowTable] = useState(false)
+  const [activeSnapshotId, setActiveSnapshotId] = useState<string>(snapshots[0]?.id || 'current')
+
+  useEffect(() => {
+    if (snapshots.length > 0 && !snapshots.find(s => s.id === activeSnapshotId)) {
+      setActiveSnapshotId(snapshots[0].id)
+    }
+  }, [snapshots, activeSnapshotId])
+
+  const activeSnapshot = useMemo(
+    () => snapshots.find(s => s.id === activeSnapshotId) || snapshots[0],
+    [snapshots, activeSnapshotId]
+  )
+
+  const snapshotOptions = useMemo(
+    () => snapshots.map(s => ({ id: s.id, value: s.id, label: s.label, dateLabel: s.dateLabel })),
+    [snapshots]
+  )
   
-  const chartData = pricingData
+  const chartData = activeSnapshot.pricingData
     .map((item) => {
       const min = toNumber(item.min_price) ?? 0
       const max = toNumber(item.max_price) ?? 0
@@ -314,7 +396,7 @@ export function PriceRangeChart({ pricingData, referenceProperty, className }: P
         min,
         max,
         range: Math.max(max - min, 0),
-        isReference: item.hotel_name === referenceProperty,
+        isReference: item.hotel_name === activeSnapshot.referenceProperty,
       }
     })
     .sort((a, b) => b.average - a.average)
@@ -326,34 +408,49 @@ export function PriceRangeChart({ pricingData, referenceProperty, className }: P
   return (
     <Card className={cardClasses}>
       <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
             <CardTitle>Price Range Comparison</CardTitle>
             <CardDescription>
               Average, minimum, and maximum prices by property
             </CardDescription>
+            <div className="mt-3 sm:hidden">
+              <SnapshotToggle
+                options={snapshotOptions}
+                value={activeSnapshotId}
+                onChange={setActiveSnapshotId}
+              />
+            </div>
           </div>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setShowTable(!showTable)}
-            className="ml-auto"
-          >
-            {showTable ? (
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="20" x2="18" y2="10"/>
-                <line x1="12" y1="20" x2="12" y2="4"/>
-                <line x1="6" y1="20" x2="6" y2="14"/>
-              </svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect width="18" height="18" x="3" y="3" rx="2"/>
-                <path d="M3 9h18"/>
-                <path d="M3 15h18"/>
-                <path d="M9 3v18"/>
-              </svg>
-            )}
-          </Button>
+          <div className="flex items-center gap-6">
+            <div className="hidden sm:block">
+              <SnapshotToggle
+                options={snapshotOptions}
+                value={activeSnapshotId}
+                onChange={setActiveSnapshotId}
+              />
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowTable(!showTable)}
+            >
+              {showTable ? (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="20" x2="18" y2="10"/>
+                  <line x1="12" y1="20" x2="12" y2="4"/>
+                  <line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect width="18" height="18" x="3" y="3" rx="2"/>
+                  <path d="M3 9h18"/>
+                  <path d="M3 15h18"/>
+                  <path d="M9 3v18"/>
+                </svg>
+              )}
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col p-0">
@@ -482,8 +579,8 @@ export function PriceRangeChart({ pricingData, referenceProperty, className }: P
               </TableRow>
             </TableHeader>
             <TableBody>
-              {pricingData.map((row) => {
-                const isReference = row.hotel_name === referenceProperty
+              {activeSnapshot.pricingData.map((row) => {
+                const isReference = row.hotel_name === activeSnapshot.referenceProperty
                 return (
                   <TableRow key={row.hotel_name} className={isReference ? "bg-muted/50" : ""}>
                     <TableCell className="font-medium">
@@ -505,7 +602,7 @@ export function PriceRangeChart({ pricingData, referenceProperty, className }: P
   )
 }
 
-interface OccupancyChartProps {
+interface OccupancySnapshot extends SnapshotMeta {
   data: Array<{
     hotel_name: string
     occupancy_rate: number
@@ -513,21 +610,42 @@ interface OccupancyChartProps {
     available: number
   }>
   referenceProperty: string
+}
+
+interface OccupancyChartProps {
+  snapshots: OccupancySnapshot[]
   className?: string
 }
 
-export function OccupancyComparisonChart({ data, referenceProperty, className }: OccupancyChartProps) {
+export function OccupancyComparisonChart({ snapshots, className }: OccupancyChartProps) {
   const [showTable, setShowTable] = useState(false)
+  const [activeSnapshotId, setActiveSnapshotId] = useState<string>(snapshots[0]?.id || 'current')
+
+  useEffect(() => {
+    if (snapshots.length > 0 && !snapshots.find(s => s.id === activeSnapshotId)) {
+      setActiveSnapshotId(snapshots[0].id)
+    }
+  }, [snapshots, activeSnapshotId])
+
+  const activeSnapshot = useMemo(
+    () => snapshots.find(s => s.id === activeSnapshotId) || snapshots[0],
+    [snapshots, activeSnapshotId]
+  )
+
+  const snapshotOptions = useMemo(
+    () => snapshots.map(s => ({ id: s.id, value: s.id, label: s.label, dateLabel: s.dateLabel })),
+    [snapshots]
+  )
   
   // Sort by occupancy descending
-  const sortedData = [...data]
+  const sortedData = [...activeSnapshot.data]
     .sort((a, b) => (toNumber(b.occupancy_rate) ?? 0) - (toNumber(a.occupancy_rate) ?? 0))
     .map(item => ({
       name: item.hotel_name,
       soldOut: toNumber(item.sold_out) ?? 0,
       available: toNumber(item.available) ?? 0,
       occupancyRate: Number((toNumber(item.occupancy_rate) ?? 0).toFixed(1)),
-      isReference: item.hotel_name === referenceProperty
+      isReference: item.hotel_name === activeSnapshot.referenceProperty
     }))
 
   const stackedChartConfig = {
@@ -548,32 +666,47 @@ export function OccupancyComparisonChart({ data, referenceProperty, className }:
   return (
     <Card className={cardClasses}>
       <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
             <CardTitle>Occupancy Analysis</CardTitle>
             <CardDescription>Availability vs Sold Out checks by property</CardDescription>
+            <div className="mt-3 sm:hidden">
+              <SnapshotToggle
+                options={snapshotOptions}
+                value={activeSnapshotId}
+                onChange={setActiveSnapshotId}
+              />
+            </div>
           </div>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setShowTable(!showTable)}
-            className="ml-auto"
-          >
-            {showTable ? (
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="20" x2="18" y2="10"/>
-                <line x1="12" y1="20" x2="12" y2="4"/>
-                <line x1="6" y1="20" x2="6" y2="14"/>
-              </svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect width="18" height="18" x="3" y="3" rx="2"/>
-                <path d="M3 9h18"/>
-                <path d="M3 15h18"/>
-                <path d="M9 3v18"/>
-              </svg>
-            )}
-          </Button>
+          <div className="flex items-center gap-6">
+            <div className="hidden sm:block">
+              <SnapshotToggle
+                options={snapshotOptions}
+                value={activeSnapshotId}
+                onChange={setActiveSnapshotId}
+              />
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowTable(!showTable)}
+            >
+              {showTable ? (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="20" x2="18" y2="10"/>
+                  <line x1="12" y1="20" x2="12" y2="4"/>
+                  <line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect width="18" height="18" x="3" y="3" rx="2"/>
+                  <path d="M3 9h18"/>
+                  <path d="M3 15h18"/>
+                  <path d="M9 3v18"/>
+                </svg>
+              )}
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col p-0">
@@ -660,11 +793,11 @@ export function OccupancyComparisonChart({ data, referenceProperty, className }:
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data
+              {activeSnapshot.data
                 .slice()
                 .sort((a, b) => (toNumber(b.occupancy_rate) ?? 0) - (toNumber(a.occupancy_rate) ?? 0))
                 .map((row, index) => {
-                  const isReference = row.hotel_name === referenceProperty
+                  const isReference = row.hotel_name === activeSnapshot.referenceProperty
                   return (
                     <TableRow key={index} className={isReference ? "bg-muted/50" : ""}>
                       <TableCell>{index + 1}</TableCell>
@@ -687,7 +820,7 @@ export function OccupancyComparisonChart({ data, referenceProperty, className }:
   )
 }
 
-interface RoomInventoryChartProps {
+interface RoomInventorySnapshot extends SnapshotMeta {
   data: Array<{
     hotel_name: string
     avg_room_occupancy_rate?: number | null
@@ -704,10 +837,31 @@ interface RoomInventoryChartProps {
   referenceProperty: string
 }
 
-export function RoomInventoryChart({ data, referenceProperty }: RoomInventoryChartProps) {
+interface RoomInventoryChartProps {
+  snapshots: RoomInventorySnapshot[]
+}
+
+export function RoomInventoryChart({ snapshots }: RoomInventoryChartProps) {
   const [showTable, setShowTable] = useState(false)
+  const [activeSnapshotId, setActiveSnapshotId] = useState<string>(snapshots[0]?.id || 'current')
+
+  useEffect(() => {
+    if (snapshots.length > 0 && !snapshots.find(s => s.id === activeSnapshotId)) {
+      setActiveSnapshotId(snapshots[0].id)
+    }
+  }, [snapshots, activeSnapshotId])
+
+  const activeSnapshot = useMemo(
+    () => snapshots.find(s => s.id === activeSnapshotId) || snapshots[0],
+    [snapshots, activeSnapshotId]
+  )
+
+  const snapshotOptions = useMemo(
+    () => snapshots.map(s => ({ id: s.id, value: s.id, label: s.label, dateLabel: s.dateLabel })),
+    [snapshots]
+  )
   
-  const chartData = data
+  const chartData = activeSnapshot.data
     .map((item) => {
       const totalRoomsRaw = toNumber(item.room_type_count_estimate) ?? toNumber(item.avg_total_room_types)
       const avgRoomPrice = toNumber(item.avg_room_price) ?? toNumber(item.avg_room_price_avg)
@@ -727,7 +881,7 @@ export function RoomInventoryChart({ data, referenceProperty }: RoomInventoryCha
         occupancy: occupancy ?? null,
         priceSpreadPct: priceSpreadPct ?? null,
         hasTiering: Boolean(item.uses_room_tiering),
-        isReference: item.hotel_name === referenceProperty,
+        isReference: item.hotel_name === activeSnapshot.referenceProperty,
         labelLine1: line1,
         labelLine2: line2,
       }
@@ -764,7 +918,7 @@ export function RoomInventoryChart({ data, referenceProperty }: RoomInventoryCha
       </div>
       <div className="flex items-center gap-1.5">
         <div className="h-2.5 w-2.5 rounded" style={{ backgroundColor: "hsl(var(--chart-2))" }} />
-        <span>{referenceProperty || "Reference"}</span>
+        <span>{activeSnapshot.referenceProperty || "Reference"}</span>
       </div>
     </div>
   )
@@ -783,32 +937,47 @@ export function RoomInventoryChart({ data, referenceProperty }: RoomInventoryCha
   return (
     <Card className={cardClasses}>
       <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
             <CardTitle>Room Inventory Mix</CardTitle>
             <CardDescription>Total room types vs. room pricing with occupancy bubble size</CardDescription>
+            <div className="mt-3 sm:hidden">
+              <SnapshotToggle
+                options={snapshotOptions}
+                value={activeSnapshotId}
+                onChange={setActiveSnapshotId}
+              />
+            </div>
           </div>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setShowTable(!showTable)}
-            className="ml-auto"
-          >
-            {showTable ? (
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="20" x2="18" y2="10"/>
-                <line x1="12" y1="20" x2="12" y2="4"/>
-                <line x1="6" y1="20" x2="6" y2="14"/>
-              </svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect width="18" height="18" x="3" y="3" rx="2"/>
-                <path d="M3 9h18"/>
-                <path d="M3 15h18"/>
-                <path d="M9 3v18"/>
-              </svg>
-            )}
-          </Button>
+          <div className="flex items-center gap-6">
+            <div className="hidden sm:block">
+              <SnapshotToggle
+                options={snapshotOptions}
+                value={activeSnapshotId}
+                onChange={setActiveSnapshotId}
+              />
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowTable(!showTable)}
+            >
+              {showTable ? (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="20" x2="18" y2="10"/>
+                  <line x1="12" y1="20" x2="12" y2="4"/>
+                  <line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect width="18" height="18" x="3" y="3" rx="2"/>
+                  <path d="M3 9h18"/>
+                  <path d="M3 15h18"/>
+                  <path d="M9 3v18"/>
+                </svg>
+              )}
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col p-0">
@@ -946,8 +1115,8 @@ export function RoomInventoryChart({ data, referenceProperty }: RoomInventoryCha
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.map((row, index) => {
-                  const isReference = row.hotel_name === referenceProperty
+                {activeSnapshot.data.map((row, index) => {
+                  const isReference = row.hotel_name === activeSnapshot.referenceProperty
                   const priceSpread = Number(row.room_price_spread_pct || 0)
                   const usesTiering = row.uses_room_tiering || false
                   const totalRooms = toNumber(row.room_type_count_estimate ?? row.avg_total_room_types) ?? 0
