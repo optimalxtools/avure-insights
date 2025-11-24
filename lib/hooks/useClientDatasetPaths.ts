@@ -11,6 +11,7 @@ type SidebarCacheSnapshot = {
   clientId?: string | null
   clientName?: string | null
   clientSlug?: string | null
+  datasetsEnabled?: "yes" | "no"
 }
 
 export type ClientDatasetPaths = {
@@ -62,10 +63,13 @@ function computePaths(cache?: SidebarCacheSnapshot | null): ClientDatasetPaths {
   }
 
   const base = `/data/${slug}`
+  const datasetsEnabled = snapshot?.datasetsEnabled === "no" ? false : true
 
   return {
     clientSlug: slug,
-    masterConfigPath: `${base}/master-config.csv?v=${MASTER_CONFIG_VERSION}`,
+    masterConfigPath: datasetsEnabled
+      ? `${base}/master-config.csv?v=${MASTER_CONFIG_VERSION}`
+      : null,
     logoPath: `${base}/logo.png`,
     logoIconPath: `${base}/logo_icon.png`,
   }

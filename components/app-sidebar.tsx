@@ -49,6 +49,7 @@ type SidebarCache = {
   showUnsubscribedModules: boolean
   dataVisible: "yes" | "no"
   dataOnly: "yes" | "no"
+  datasetsEnabled?: "yes" | "no"
 }
 
 // 1×1 transparent PNG to keep <img> node stable on SSR/CSR
@@ -148,10 +149,11 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
 
       let clientIdFromUser: string | undefined
       let clientSlug: string | null = null
-      let cachedLogo: string | null = null
-  let cachedIcon: string | null = null
+    let cachedLogo: string | null = null
+    let cachedIcon: string | null = null
       let nextDataVisible: "yes" | "no" = "yes"
       let nextDataOnly: "yes" | "no" = "no"
+    let nextDatasetsEnabled: "yes" | "no" = "yes"
 
       const cached = readCache()
       if (cached && cached.uid === u.uid) {
@@ -166,9 +168,10 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         clientIdFromUser = cached.clientId ?? clientIdFromUser
         clientSlug = cached.clientSlug ?? clientSlug
         cachedLogo = cached.clientLogo ?? cachedLogo
-        cachedIcon = cached.clientIcon ?? cachedIcon
-        nextDataVisible = cached.dataVisible ?? "yes"
-        nextDataOnly = cached.dataOnly ?? "no"
+  cachedIcon = cached.clientIcon ?? cachedIcon
+  nextDataVisible = cached.dataVisible ?? "yes"
+  nextDataOnly = cached.dataOnly ?? "no"
+  nextDatasetsEnabled = cached.datasetsEnabled ?? nextDatasetsEnabled
       }
 
       const normalizedEmail = (u.email ?? "").toLowerCase().trim()
@@ -262,6 +265,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
               modVisible?: string
               dataVisible?: string
               dataOnly?: string
+              datasetsEnabled?: string
             }
 
             cName = c.name || cName
@@ -277,6 +281,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
             clientModVisible = c.modVisible?.toLowerCase() === "yes"
             const normalizedDataVisible = (c.dataVisible ?? "yes").toLowerCase() === "no" ? "no" : "yes"
             const normalizedDataOnly = (c.dataOnly ?? "no").toLowerCase() === "yes" ? "yes" : "no"
+            const normalizedDatasetsEnabled = (c.datasetsEnabled ?? "yes").toLowerCase() === "no" ? "no" : "yes"
             teamList = [
               { name: c.name || "Unknown organisation", logo: GalleryVerticalEnd, plan: "Enterprise" },
             ]
@@ -288,6 +293,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
             setShowUnsubscribedModules(clientModVisible)
             nextDataVisible = normalizedDataVisible
             nextDataOnly = normalizedDataOnly
+            nextDatasetsEnabled = normalizedDatasetsEnabled
           } else {
             console.warn("[Sidebar] client doc missing for clientId:", clientIdFromUser)
             setClientName("Unknown organisation")
@@ -302,6 +308,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
             setShowUnsubscribedModules(false)
             nextDataVisible = "yes"
             nextDataOnly = "no"
+            nextDatasetsEnabled = "yes"
           }
         } else {
           console.log("[Sidebar] No clientId found for user:", normalizedEmail)
@@ -316,6 +323,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
           setShowUnsubscribedModules(false)
           nextDataVisible = "yes"
           nextDataOnly = "no"
+          nextDatasetsEnabled = "yes"
         }
       } catch (err) {
         console.warn("[Sidebar] client lookup failed (rules or data):", err)
@@ -329,8 +337,9 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   setClientIcon(cIcon)
         setTeams(teamList)
         setShowUnsubscribedModules(false)
-        nextDataVisible = "yes"
-        nextDataOnly = "no"
+  nextDataVisible = "yes"
+  nextDataOnly = "no"
+  nextDatasetsEnabled = "yes"
       } finally {
         setLoadingClient(false)
       }
@@ -365,12 +374,13 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         clientSlug: clientSlug ?? null,
         clientName: cName,
         clientLogo: cLogo,
-  clientIcon: cIcon ?? null,
+        clientIcon: cIcon ?? null,
         teams: teamList,
         allowedModules: userModules,
         showUnsubscribedModules: clientModVisible,
         dataVisible: nextDataVisible,
         dataOnly: nextDataOnly,
+        datasetsEnabled: nextDatasetsEnabled,
       }
       writeCache(builtCache)
 
