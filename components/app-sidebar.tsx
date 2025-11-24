@@ -4,7 +4,7 @@ import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { GalleryVerticalEnd} from "lucide-react"
+import { GalleryVerticalEnd } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
@@ -13,10 +13,11 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
-  SidebarRail
+  SidebarRail,
 } from "@/components/ui/sidebar"
 
 import { auth, db } from "@/lib/firebaseClient"
+import { computeClientSlug } from "@/lib/slug"
 import { onAuthStateChanged } from "firebase/auth"
 import {
   collection,
@@ -48,28 +49,9 @@ type SidebarCache = {
   dataOnly: "yes" | "no"
 }
 
-// 1Ã—1 transparent PNG to keep <img> node stable on SSR/CSR
+// 1×1 transparent PNG to keep <img> node stable on SSR/CSR
 const TRANSPARENT_PNG =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII="
-
-function slugify(value: string | null | undefined): string | null {
-  if (!value) return null
-  let cleaned = value.trim()
-  if (typeof cleaned.normalize === "function") {
-    cleaned = cleaned.normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
-  }
-  const slug = cleaned
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-  return slug.length > 0 ? slug : null
-}
-
-function computeClientSlug(name: string | null | undefined, id: string | null | undefined) {
-  const slugFromName = slugify(name)
-  if (slugFromName) return slugFromName
-  return slugify(id)
-}
 
 function readCache(): SidebarCache | null {
   if (typeof window === "undefined") return null
