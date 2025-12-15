@@ -7,11 +7,11 @@ import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { AIButton } from "@/components/ai-button"
 import { Card, CardContent } from "@/components/ui/card"
-import { getPriceWiseSnapshots } from "@/lib/price-wise/scraper"
+import { getPriceWiseSnapshots, getAllPriceWiseSnapshots } from "@/lib/price-wise/scraper"
 import { buildSnapshotViews } from "@/lib/price-wise/snapshot-utils"
 import type { PriceWiseSnapshotView } from "@/lib/price-wise/types"
 import { RefreshButton } from "@/components/price-wise-refresh-button"
-import { SimplePriceChart, SimpleOccupancyChart, DailyBookingStatusChart, DailyAvailabilityChart } from "@/components/price-wise/overview-charts"
+import { OverviewTimeSeriesCharts, type TimeSeriesDataPoint, type PropertyTimeSeriesData } from "@/components/price-wise/overview-time-series-charts"
 import { TrendingUp, TrendingDown } from "lucide-react"
 
 export default async function Page() {
@@ -22,6 +22,71 @@ export default async function Page() {
     "Two Periods Back (T-2)",
   ])
   const latestSnapshot: PriceWiseSnapshotView | null = snapshotViews[0] ?? null
+
+  // Fetch all snapshots for time series charts
+  const allRawSnapshots = await getAllPriceWiseSnapshots()
+  const allSnapshotViews = buildSnapshotViews(
+    allRawSnapshots,
+    allRawSnapshots.map((_, i) => `Snapshot ${i + 1}`)
+  )
+
+  // Build time series data for charts
+  const dateFormatter = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+  })
+
+  // Get all unique properties across all snapshots
+  const allProperties = new Set<string>()
+  allSnapshotViews.forEach((snapshot) => {
+    snapshot.pricingMetrics.forEach((m) => allProperties.add(m.hotel_name))
+    snapshot.occupancyMetrics.forEach((m) => allProperties.add(m.hotel_name))
+  })
+  const propertyList = Array.from(allProperties)
+
+  // Build time series data points (oldest to newest for proper chart display)
+  const sortedSnapshots = [...allSnapshotViews].sort((a, b) => {
+    const dateA = a.generatedAt ? new Date(a.generatedAt).getTime() : 0
+    const dateB = b.generatedAt ? new Date(b.generatedAt).getTime() : 0
+    return dateA - dateB
+  })
+
+  const priceTimeSeriesData: TimeSeriesDataPoint[] = sortedSnapshots.map((snapshot) => {
+    const date = snapshot.generatedAt ? new Date(snapshot.generatedAt) : null
+    const dateLabel = date ? dateFormatter.format(date) : "Unknown"
+    const point: TimeSeriesDataPoint = {
+      date: snapshot.generatedAt || snapshot.id,
+      dateLabel,
+    }
+    propertyList.forEach((property) => {
+      const key = property.replace(/[^a-zA-Z0-9]/g, "_")
+      const metric = snapshot.pricingMetrics.find((m) => m.hotel_name === property)
+      point[key] = metric?.avg_price_per_night ?? null
+    })
+    return point
+  })
+
+  const occupancyTimeSeriesData: TimeSeriesDataPoint[] = sortedSnapshots.map((snapshot) => {
+    const date = snapshot.generatedAt ? new Date(snapshot.generatedAt) : null
+    const dateLabel = date ? dateFormatter.format(date) : "Unknown"
+    const point: TimeSeriesDataPoint = {
+      date: snapshot.generatedAt || snapshot.id,
+      dateLabel,
+    }
+    propertyList.forEach((property) => {
+      const key = property.replace(/[^a-zA-Z0-9]/g, "_")
+      const metric = snapshot.occupancyMetrics.find((m) => m.hotel_name === property)
+      point[key] = metric?.occupancy_rate ?? null
+    })
+    return point
+  })
+
+  const timeSeriesData: PropertyTimeSeriesData = {
+    allProperties: propertyList,
+    referenceProperty: latestSnapshot?.referenceProperty ?? "",
+    priceData: priceTimeSeriesData,
+    occupancyData: occupancyTimeSeriesData,
+  }
 
   const generatedLabel = latestSnapshot
     ? `Generated ${latestSnapshot.fullLabel}`
@@ -75,48 +140,6 @@ export default async function Page() {
       </span>
     )
   }
-
-  const priceChartSnapshots = snapshotViews.map((snapshot) => ({
-    id: snapshot.id,
-    label: snapshot.label,
-    dateLabel: snapshot.dateLabel,
-    fullLabel: snapshot.fullLabel,
-    pricingData: snapshot.pricingMetrics,
-    referenceProperty: snapshot.referenceProperty,
-  }))
-
-  const occupancyChartSnapshots = snapshotViews.map((snapshot) => ({
-    id: snapshot.id,
-    label: snapshot.label,
-    dateLabel: snapshot.dateLabel,
-    fullLabel: snapshot.fullLabel,
-    occupancyData: snapshot.occupancyMetrics,
-    roomInventoryData: snapshot.roomInventoryMetrics,
-    referenceProperty: snapshot.referenceProperty,
-  }))
-
-  const bookingStatusSnapshots = snapshotViews.map((snapshot) => ({
-    id: snapshot.id,
-    label: snapshot.label,
-    dateLabel: snapshot.dateLabel,
-    fullLabel: snapshot.fullLabel,
-    dailyData: snapshot.dailyData,
-    referenceProperty: snapshot.referenceProperty,
-    roomInventoryData: snapshot.roomInventoryMetrics,
-  }))
-
-  const availabilitySnapshots = snapshotViews.map((snapshot) => ({
-    id: snapshot.id,
-    label: snapshot.label,
-    dateLabel: snapshot.dateLabel,
-    fullLabel: snapshot.fullLabel,
-    dailyData: snapshot.dailyData,
-    referenceProperty: snapshot.referenceProperty,
-  }))
-
-  const hasPricingData = snapshotViews.some((snapshot) => snapshot.pricingMetrics.length > 0)
-  const hasOccupancyData = snapshotViews.some((snapshot) => snapshot.occupancyMetrics.length > 0)
-  const hasDailyData = snapshotViews.some((snapshot) => snapshot.dailyData.length > 0)
 
   return (
     <>
@@ -289,32 +312,9 @@ export default async function Page() {
               )}
             </div>
 
-            {/* Data Overview Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-w-0">
-              {hasPricingData && (
-                <SimplePriceChart 
-                  snapshots={priceChartSnapshots}
-                />
-              )}
-              {hasOccupancyData && (
-                <SimpleOccupancyChart 
-                  snapshots={occupancyChartSnapshots}
-                />
-              )}
-            </div>
-
-            {/* Daily Booking Status with Competitor Comparison */}
-            {hasDailyData && (
-              <DailyBookingStatusChart 
-                snapshots={bookingStatusSnapshots}
-              />
-            )}
-
-            {/* Daily Availability Tracking */}
-            {hasDailyData && (
-              <DailyAvailabilityChart 
-                snapshots={availabilitySnapshots}
-              />
+            {/* Time Series Charts */}
+            {timeSeriesData.priceData.length > 0 && (
+              <OverviewTimeSeriesCharts data={timeSeriesData} />
             )}
           </>
         )}

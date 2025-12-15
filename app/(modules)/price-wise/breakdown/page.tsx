@@ -22,6 +22,7 @@ import { buildSnapshotViews } from "@/lib/price-wise/snapshot-utils"
 import { RefreshButton } from "@/components/price-wise-refresh-button"
 import { PriceDifferenceChart, PriceRangeChart, OccupancyComparisonChart as MetricsOccupancyChart, RoomInventoryChart } from "@/components/price-wise/breakdown-metrics-charts"
 import { PriceComparisonChart, OpportunityCostChart } from "@/components/price-wise/breakdown-insights-charts"
+import { SimplePriceChart, SimpleOccupancyChart, DailyBookingStatusChart, DailyAvailabilityChart } from "@/components/price-wise/overview-charts"
 
 export default async function Page() {
   const rawSnapshots = await getPriceWiseSnapshots(3)
@@ -95,7 +96,53 @@ export default async function Page() {
     referenceProperty,
   }))
 
-  // For the insights tab, use the latest snapshot data
+  // Build snapshots for SimplePriceChart (from Overview)
+  const priceChartSnapshots = snapshotViews.map((snapshot) => ({
+    id: snapshot.id,
+    label: snapshot.label,
+    dateLabel: snapshot.dateLabel,
+    fullLabel: snapshot.fullLabel,
+    pricingData: snapshot.pricingMetrics,
+    referenceProperty: snapshot.referenceProperty,
+  }))
+
+  // Build snapshots for SimpleOccupancyChart (from Overview)
+  const occupancyChartSnapshots = snapshotViews.map((snapshot) => ({
+    id: snapshot.id,
+    label: snapshot.label,
+    dateLabel: snapshot.dateLabel,
+    fullLabel: snapshot.fullLabel,
+    occupancyData: snapshot.occupancyMetrics,
+    roomInventoryData: snapshot.roomInventoryMetrics,
+    referenceProperty: snapshot.referenceProperty,
+  }))
+
+  // Build snapshots for DailyBookingStatusChart (from Overview)
+  const bookingStatusSnapshots = snapshotViews.map((snapshot) => ({
+    id: snapshot.id,
+    label: snapshot.label,
+    dateLabel: snapshot.dateLabel,
+    fullLabel: snapshot.fullLabel,
+    dailyData: snapshot.dailyData,
+    referenceProperty: snapshot.referenceProperty,
+    roomInventoryData: snapshot.roomInventoryMetrics,
+  }))
+
+  // Build snapshots for DailyAvailabilityChart (from Overview)
+  const availabilitySnapshots = snapshotViews.map((snapshot) => ({
+    id: snapshot.id,
+    label: snapshot.label,
+    dateLabel: snapshot.dateLabel,
+    fullLabel: snapshot.fullLabel,
+    dailyData: snapshot.dailyData,
+    referenceProperty: snapshot.referenceProperty,
+  }))
+
+  const hasPricingData = snapshotViews.some((snapshot) => snapshot.pricingMetrics.length > 0)
+  const hasOccupancyData = snapshotViews.some((snapshot) => snapshot.occupancyMetrics.length > 0)
+  const hasDailyData = snapshotViews.some((snapshot) => snapshot.dailyData.length > 0)
+
+  // For the compare tab (was insights), use the latest snapshot data
   const currentReferencePrice = latestSnapshot?.pricingMetrics.find(
     (entry) => entry.hotel_name === referenceProperty
   )?.avg_price_per_night ?? 0
@@ -146,10 +193,41 @@ export default async function Page() {
           <TabsList>
             <TabsTrigger value="metrics">Metrics</TabsTrigger>
             <TabsTrigger value="insights">Insights</TabsTrigger>
-            <TabsTrigger value="compare">Compare</TabsTrigger>
+            <TabsTrigger value="tips">Tips</TabsTrigger>
           </TabsList>
 
           <TabsContent value="metrics">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-w-0">
+              {hasPricingData && (
+                <SimplePriceChart 
+                  snapshots={priceChartSnapshots}
+                />
+              )}
+              {hasOccupancyData && (
+                <SimpleOccupancyChart 
+                  snapshots={occupancyChartSnapshots}
+                />
+              )}
+            </div>
+
+            {hasDailyData && (
+              <div className="mt-4">
+                <DailyBookingStatusChart 
+                  snapshots={bookingStatusSnapshots}
+                />
+              </div>
+            )}
+
+            {hasDailyData && (
+              <div className="mt-4">
+                <DailyAvailabilityChart 
+                  snapshots={availabilitySnapshots}
+                />
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="insights">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {priceDifferenceSnapshots.length > 0 && priceDifferenceSnapshots[0].comparisonData.length > 0 && (
                 <PriceDifferenceChart snapshots={priceDifferenceSnapshots} />
@@ -169,7 +247,7 @@ export default async function Page() {
             </div>
           </TabsContent>
 
-          <TabsContent value="insights" className="space-y-4">
+          <TabsContent value="tips" className="space-y-4">
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               <PriceComparisonChart
                 pricingData={latestSnapshot?.pricingMetrics ?? []}
@@ -182,12 +260,6 @@ export default async function Page() {
                 currentOccupancy={currentReferenceOccupancy}
                 referenceProperty={referenceProperty}
               />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="compare" className="space-y-4">
-            <div className="rounded-md border p-6 text-sm text-muted-foreground">
-              Comparisons coming soon
             </div>
           </TabsContent>
         </Tabs>

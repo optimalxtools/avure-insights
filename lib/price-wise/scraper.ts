@@ -733,6 +733,40 @@ export async function getPriceWiseSnapshots(limit: number = 2): Promise<PriceWis
   return snapshots
 }
 
+export async function getAllPriceWiseSnapshots(): Promise<PriceWiseSnapshot[]> {
+  const snapshots: PriceWiseSnapshot[] = []
+  const seenGeneratedAt = new Set<string>()
+
+  const addSnapshot = (snapshot: PriceWiseSnapshot | undefined) => {
+    if (!snapshot) return
+    const key = snapshot.generatedAt || snapshot.id
+    if (seenGeneratedAt.has(key)) return
+    seenGeneratedAt.add(key)
+    snapshots.push(snapshot)
+  }
+
+  // Add current snapshot
+  addSnapshot(await loadSnapshotFromFiles({
+    id: "current",
+    source: "current",
+    analysisPath: ANALYSIS_JSON,
+    csvPath: PRICING_CSV,
+  }))
+
+  // Add all archive snapshots
+  const archiveDates = await listArchiveDates()
+  for (const dateStr of archiveDates) {
+    addSnapshot(await loadSnapshotFromFiles({
+      id: `archive-${dateStr}`,
+      source: "archive",
+      analysisPath: path.join(ARCHIVE_DIR, `pricing_analysis_${dateStr}.json`),
+      csvPath: path.join(ARCHIVE_DIR, `pricing_data_${dateStr}.csv`),
+    }))
+  }
+
+  return snapshots
+}
+
 export async function getScraperAnalysis(): Promise<PriceWiseAnalysis | undefined> {
   const snapshots = await getPriceWiseSnapshots(1)
   return snapshots[0]?.analysis
